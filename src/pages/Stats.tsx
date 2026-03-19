@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/database';
 import { BADGES, getLevelFromXp, getLevelTitle, getLevelProgress, type Badge } from '../services/impactService';
-import { getCacheStats, clearAllCache, type AICacheServiceType } from '../services/aiCacheService';
+import { getCacheStats, clearAllCache } from '../services/aiCacheService';
 import { ChevronLeft, Share2, Leaf, Droplets, DollarSign, Database, Trash2 } from 'lucide-react';
 
 type TimeFilter = 'weekly' | 'monthly' | 'allTime';

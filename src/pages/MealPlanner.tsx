@@ -16,7 +16,6 @@ import {
 import type { Recipe } from '../services/recipeService';
 import {
     ChevronLeft,
-    ChevronRight,
     Plus,
     X,
     ShoppingCart,

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { ChevronLeft, X, Minus, Plus, Calendar, Check, AlertTriangle, Info, Sparkles } from 'lucide-react';
 import { useInventory } from '../context/InventoryContext';
 import { generateUUID } from '../utils/uuid';
