@@ -1,0 +1,8 @@
+run = "npm run dev"
+
+[nix]
+channel = "stable-24_05"
+
+[deps]
+npm = "latest"
+nodejs = "20"

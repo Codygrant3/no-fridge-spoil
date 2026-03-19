@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build:*)",
+      "Bash(npm install:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: Major enhancements to No Fridge Spoil app - 1/21/2026\n\n- Added new components: CookMode, EatThisTonightWidget, ReviewItems, VoiceAssistant\n- Created new pages: Alerts and ShoppingList\n- Enhanced scanning functionality with queue service and image compression\n- Added new services: barcode cache, fact checking, impact tracking, receipt OCR, shelf life, substitutions, and voice\n- Improved UI across Inventory, Recipes, Scan, and Stats pages\n- Updated PWA assets and manifest\n- Added utility functions for debouncing and UUID generation\n- Enhanced database schema and context management\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(curl:*)",
+      "Bash(cd:*)",
+      "Bash(npm run test:run:*)",
+      "Bash(npm run test:coverage:*)",
+      "Bash(npm test:*)",
+      "Bash(bash:*)",
+      "Bash(npx vercel:*)",
+      "Skill(remotion)",
+      "Skill(remotion:*)",
+      "Bash(npx create-video@latest remotion-intro --no-open)",
+      "Bash(npx tsc:*)",
+      "Bash(dir \"C:\\\\Projects\\\\No Fridge Spoil\\\\remotion-intro\\\\out\")",
+      "Bash(copy:*)",
+      "Bash(npx remotion render:*)",
+      "Bash(npm run dev:*)",
+      "Bash(dir:*)",
+      "Bash(npm ls:*)",
+      "Bash(npx remotion:*)",
+      "Bash(npx claude-code-templates@latest --create-agent development-team/frontend-developer)",
+      "Bash(npx claude-code-templates@latest:*)"
+    ]
+  }
+}

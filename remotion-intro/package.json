@@ -1,0 +1,23 @@
+{
+  "name": "remotion-intro",
+  "version": "1.0.0",
+  "description": "Animated intro video for No Fridge Spoil app",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts AppIntro out/intro.mp4",
+    "render:gif": "remotion render src/index.ts AppIntro out/intro.gif --image-format png"
+  },
+  "dependencies": {
+    "@remotion/bundler": "^4.0.409",
+    "@remotion/cli": "^4.0.409",
+    "@remotion/google-fonts": "4.0.409",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "remotion": "^4.0.409"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.9",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^5.9.3"
+  }
+}
