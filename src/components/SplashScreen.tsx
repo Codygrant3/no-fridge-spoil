@@ -26,11 +26,17 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
     const [lettersVisible, setLettersVisible] = useState<boolean[]>(new Array(LETTERS.length).fill(false));
 
     useEffect(() => {
-        // Try to play the video
         const video = videoRef.current;
+
+        // Safety timeout: if splash hasn't completed in 6 seconds, force it
+        const safetyTimeout = setTimeout(() => {
+            console.warn('Splash screen safety timeout — forcing completion');
+            onComplete();
+        }, 6000);
 
         if (video && !videoError) {
             const handleEnded = () => {
+                clearTimeout(safetyTimeout);
                 onComplete();
             };
 
@@ -42,16 +48,21 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
             video.addEventListener('ended', handleEnded);
             video.addEventListener('error', handleError);
 
-            video.play().catch(() => {
-                video.muted = true;
-                video.play().catch(handleError);
-            });
+            // Always start muted to satisfy autoplay policies, then try unmuting
+            video.muted = true;
+            video.play().then(() => {
+                // Try to unmute after playback starts
+                video.muted = false;
+            }).catch(handleError);
 
             return () => {
+                clearTimeout(safetyTimeout);
                 video.removeEventListener('ended', handleEnded);
                 video.removeEventListener('error', handleError);
             };
         }
+
+        return () => clearTimeout(safetyTimeout);
     }, [onComplete, videoError]);
 
     // Animated letter sequence - runs for BOTH video and fallback modes
@@ -101,7 +112,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
     // Video-based splash screen with 3D text overlay
     if (!videoError) {
         return (
-            <div className="fixed inset-0 z-[100] bg-[#1a3329] flex items-center justify-center overflow-hidden">
+            <div className="fixed inset-0 z-[100] bg-[#021a13] flex items-center justify-center overflow-hidden">
                 {/* Video background */}
                 <video
                     ref={videoRef}
@@ -306,7 +317,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden splash-container">
             {/* Animated gradient background */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#0d2818] via-[#1a4d2e] to-[#0f3d1f] animate-gradient-shift" />
+            <div className="absolute inset-0 bg-gradient-to-br from-[#021a13] via-[#064e3b] to-[#022c22] animate-gradient-shift" />
 
             {/* Floating particles */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -383,7 +394,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
             </div>
 
             {/* Fade out overlay */}
-            <div className={`absolute inset-0 bg-[#0d1f12] transition-opacity duration-700 pointer-events-none ${phase >= 4 ? 'opacity-100' : 'opacity-0'}`} />
+            <div className={`absolute inset-0 bg-[#021a13] transition-opacity duration-700 pointer-events-none ${phase >= 4 ? 'opacity-100' : 'opacity-0'}`} />
 
             <style>{`
                 /* Gradient animation */
