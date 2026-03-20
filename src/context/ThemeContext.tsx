@@ -11,7 +11,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const [isDark, setIsDark] = useState(() => {
         const saved = localStorage.getItem('theme');
         if (saved) return saved === 'dark';
-        return window.matchMedia('(prefers-color-scheme: dark)').matches;
+        // Default to dark — the glass design is built for dark mode
+        return true;
     });
 
     useEffect(() => {
