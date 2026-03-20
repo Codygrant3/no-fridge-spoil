@@ -79,15 +79,12 @@ export function Scan() {
         }
     }, []);
 
-    // Auto-start camera on mount, cleanup on unmount
+    // Cleanup on unmount
     useEffect(() => {
-        if (supportsLiveVideo && !cameraActive && !isScanning && !showReview && !showBarcodeScanner) {
-            startCamera();
-        }
         return () => {
             stopCamera();
         };
-    }, []);
+    }, [stopCamera]);
 
     // Initialize/cleanup scan queue when batch mode toggles
     useEffect(() => {
@@ -403,11 +400,18 @@ export function Scan() {
                             className="absolute inset-0 w-full h-full object-cover"
                         />
                     ) : (
-                        <div className="absolute inset-0 flex items-center justify-center bg-[var(--bg-tertiary)]">
-                            <p className="text-[var(--text-muted)] text-sm font-medium">
-                                {scanMode === 'receipt' ? 'Position receipt here' : 'Position item here'}
+                        <button
+                            onClick={supportsLiveVideo ? startCamera : () => cameraInputRef.current?.click()}
+                            className="absolute inset-0 flex flex-col items-center justify-center bg-[var(--bg-tertiary)] active:bg-[var(--bg-secondary)] transition-colors"
+                        >
+                            <Camera className="w-12 h-12 text-[var(--accent-color)] mb-3" />
+                            <p className="text-[var(--text-secondary)] text-sm font-semibold">
+                                Tap to open camera
                             </p>
-                        </div>
+                            <p className="text-[var(--text-muted)] text-xs mt-1">
+                                {scanMode === 'receipt' ? 'Photograph your receipt' : 'Point at your food item'}
+                            </p>
+                        </button>
                     )}
 
                     {/* Scanning overlay */}
