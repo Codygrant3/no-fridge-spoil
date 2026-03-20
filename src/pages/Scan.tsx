@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { ChevronLeft, Zap, Camera, ImagePlus, Loader2, X, AlertCircle, Check } from 'lucide-react';
+import { ChevronLeft, Zap, Camera, ImagePlus, Loader2, X, AlertCircle, Check, Barcode } from 'lucide-react';
 import type { VisionAnalysisResult } from '../services/visionService';
 import { analyzeImage } from '../services/visionService';
 import { ReviewItems, type ScannedItem } from '../components/ReviewItems';
+import { BarcodeScanner } from '../components/BarcodeScanner';
 import { generateUUID } from '../utils/uuid';
 import { compressImage, compressReceiptImage } from '../services/imageCompressionService';
 import { analyzeReceipt } from '../services/receiptOCRService';
 import { ScanQueue, type QueuedScan } from '../services/scanQueueService';
+import { getShelfLifeDefaults, estimateExpirationDate } from '../services/sealedShelfLifeService';
 
 export function Scan() {
     const [isScanning, setIsScanning] = useState(false);
@@ -18,6 +20,7 @@ export function Scan() {
     const [scanQueue, setScanQueue] = useState<ScanQueue | null>(null);
     const [queuedScans, setQueuedScans] = useState<QueuedScan[]>([]);
     const [error, setError] = useState<string | null>(null);
+    const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
 
     // Live camera state
     const [cameraActive, setCameraActive] = useState(false);
@@ -76,12 +79,15 @@ export function Scan() {
         }
     }, []);
 
-    // Cleanup on unmount
+    // Auto-start camera on mount, cleanup on unmount
     useEffect(() => {
+        if (supportsLiveVideo && !cameraActive && !isScanning && !showReview && !showBarcodeScanner) {
+            startCamera();
+        }
         return () => {
             stopCamera();
         };
-    }, [stopCamera]);
+    }, []);
 
     // Initialize/cleanup scan queue when batch mode toggles
     useEffect(() => {
@@ -226,6 +232,30 @@ export function Scan() {
         setScannedItems([]);
     };
 
+    // Handle barcode product found
+    const handleBarcodeProduct = useCallback((product: { name: string; brand: string; found: boolean }) => {
+        if (!product.found) {
+            setError('Product not found in database. Try scanning the item with the camera instead.');
+            return;
+        }
+        const defaults = getShelfLifeDefaults(product.name);
+        const item: ScannedItem = {
+            id: generateUUID(),
+            name: product.name,
+            brand: product.brand !== 'Unknown' ? product.brand : undefined,
+            category: defaults?.category || 'Grocery',
+            confidence: 'High',
+            expirationDate: defaults ? estimateExpirationDate(defaults.sealedDays) : '',
+            quantity: 1,
+            suggestedStorage: defaults?.defaultStorage,
+            suggestedDateType: defaults?.dateType,
+            autoFillConfidence: defaults?.confidence,
+            wasAutoFilled: !!defaults,
+        };
+        setScannedItems([item]);
+        setShowReview(true);
+    }, []);
+
     if (showReview) {
         return (
             <ReviewItems
@@ -241,6 +271,13 @@ export function Scan() {
 
     return (
         <div className="min-h-full bg-[var(--bg-primary)] flex flex-col">
+            {/* Barcode Scanner Modal */}
+            <BarcodeScanner
+                isOpen={showBarcodeScanner}
+                onClose={() => setShowBarcodeScanner(false)}
+                onProductFound={handleBarcodeProduct}
+            />
+
             {/* Hidden elements */}
             <input
                 type="file"
@@ -290,8 +327,12 @@ export function Scan() {
                     </button>
                 </div>
 
-                <button className="w-10 h-10 bg-[var(--bg-secondary)] rounded-full flex items-center justify-center border border-[var(--border-color)] inventory-card">
-                    <Zap className="w-5 h-5 text-[var(--accent-color)]" />
+                <button
+                    onClick={() => { stopCamera(); setShowBarcodeScanner(true); }}
+                    className="w-10 h-10 bg-[var(--bg-secondary)] rounded-full flex items-center justify-center border border-[var(--border-color)] inventory-card"
+                    title="Barcode Scanner"
+                >
+                    <Barcode className="w-5 h-5 text-[var(--accent-color)]" />
                 </button>
             </header>
 
