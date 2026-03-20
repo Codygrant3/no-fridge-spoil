@@ -20,29 +20,29 @@ export function BottomNav({ currentTab, onTabChange, onFabClick, alertCount = 0 
 
     return (
         <>
-            {/* FAB Button - Floating Action Button */}
+            {/* FAB — Floating Action Button */}
             <button
                 onClick={onFabClick}
-                className="fixed bottom-24 right-4 w-14 h-14 rounded-full flex items-center justify-center z-50 transition-all duration-200 ease-spring hover:scale-105 active:scale-95"
+                className="fixed bottom-24 right-5 w-14 h-14 rounded-full flex items-center justify-center z-50 transition-all duration-300 active:scale-90"
                 style={{
-                    background: 'linear-gradient(135deg, #4ade80 0%, #22c55e 100%)',
-                    boxShadow: '0 4px 20px rgba(74, 222, 128, 0.4), 0 0 40px rgba(74, 222, 128, 0.2)',
+                    background: 'linear-gradient(135deg, #34d399 0%, #10b981 50%, #059669 100%)',
+                    boxShadow: '0 4px 20px rgba(52, 211, 153, 0.3), 0 0 40px rgba(52, 211, 153, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
                 }}
-                aria-label="Quick add"
+                aria-label="Quick scan"
             >
-                <Plus className="w-7 h-7 text-white" strokeWidth={2.5} />
+                <Plus className="w-6 h-6 text-white" strokeWidth={2.5} />
             </button>
 
-            {/* Bottom Navigation - Glass Pill Design */}
+            {/* Bottom Navigation — Frosted Glass Pill */}
             <nav className="fixed bottom-0 left-0 right-0 flex justify-center pb-safe z-50 px-4 pb-2">
                 <div
-                    className="flex items-center justify-around w-full max-w-md h-16 rounded-2xl px-2"
+                    className="flex items-center justify-around w-full max-w-md h-16 rounded-[20px] px-1"
                     style={{
-                        background: 'rgba(10, 14, 26, 0.85)',
-                        backdropFilter: 'blur(16px)',
-                        WebkitBackdropFilter: 'blur(16px)',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
-                        boxShadow: '0 -4px 24px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+                        background: 'rgba(2, 26, 19, 0.75)',
+                        backdropFilter: 'blur(40px) saturate(180%)',
+                        WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+                        border: '1px solid rgba(52, 211, 153, 0.08)',
+                        boxShadow: '0 -2px 20px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(167, 243, 208, 0.04)',
                     }}
                 >
                     {tabs.map(({ key, label, icon: Icon, showBadge }) => {
@@ -51,39 +51,40 @@ export function BottomNav({ currentTab, onTabChange, onFabClick, alertCount = 0 
                             <button
                                 key={key}
                                 onClick={() => onTabChange(key)}
-                                className={`relative flex flex-col items-center justify-center w-16 h-14 rounded-xl transition-all duration-200 ${
+                                className={`relative flex flex-col items-center justify-center w-16 h-12 rounded-3xl transition-all duration-300 ${
                                     isActive
                                         ? 'text-[var(--accent-color)]'
-                                        : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                                        : 'text-[var(--text-muted)] active:text-[var(--text-secondary)]'
                                 }`}
                                 style={isActive ? {
-                                    background: 'rgba(74, 222, 128, 0.1)',
+                                    background: 'rgba(52, 211, 153, 0.1)',
+                                    boxShadow: 'inset 0 1px 0 rgba(52, 211, 153, 0.08)',
                                 } : undefined}
                             >
-                                {/* Active indicator dot */}
+                                {/* Active indicator line */}
                                 {isActive && (
                                     <div
-                                        className="absolute -top-1 w-1 h-1 rounded-full bg-[var(--accent-color)]"
+                                        className="absolute -top-0.5 w-6 h-[2px] rounded-full"
                                         style={{
-                                            boxShadow: '0 0 8px rgba(74, 222, 128, 0.6)',
+                                            background: 'linear-gradient(90deg, transparent, var(--accent-color), transparent)',
                                         }}
                                     />
                                 )}
 
-                                {/* Icon with badge */}
+                                {/* Icon */}
                                 <div className="relative">
                                     <Icon
-                                        className={`w-5 h-5 transition-transform duration-200 ${
-                                            isActive ? 'scale-110' : ''
+                                        className={`w-[22px] h-[22px] transition-all duration-300 ${
+                                            isActive ? 'scale-105' : ''
                                         }`}
-                                        strokeWidth={isActive ? 2.5 : 2}
+                                        strokeWidth={isActive ? 2.2 : 1.8}
                                     />
                                     {showBadge && alertCount > 0 && (
                                         <span
-                                            className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold text-white px-1"
+                                            className="absolute -top-1.5 -right-2 min-w-[16px] h-[16px] flex items-center justify-center rounded-full text-[9px] font-bold text-white px-1"
                                             style={{
-                                                background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-                                                boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)',
+                                                background: 'linear-gradient(135deg, #f87171, #ef4444)',
+                                                boxShadow: '0 2px 6px rgba(248, 113, 113, 0.4)',
                                             }}
                                         >
                                             {alertCount > 9 ? '9+' : alertCount}
@@ -93,8 +94,8 @@ export function BottomNav({ currentTab, onTabChange, onFabClick, alertCount = 0 
 
                                 {/* Label */}
                                 <span
-                                    className={`text-[10px] mt-1 font-medium tracking-wide transition-opacity duration-200 ${
-                                        isActive ? 'opacity-100' : 'opacity-70'
+                                    className={`text-[10px] mt-0.5 font-medium tracking-wide transition-all duration-300 ${
+                                        isActive ? 'opacity-100' : 'opacity-50'
                                     }`}
                                 >
                                     {label}

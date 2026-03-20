@@ -11,7 +11,7 @@ export function FilterTabs({ activeFilter, onFilterChange, counts }: FilterTabsP
         { key: 'all', label: 'All', color: 'bg-gray-500' },
         { key: 'expiring_soon', label: 'Expiring', color: 'bg-yellow-500' },
         { key: 'expired', label: 'Expired', color: 'bg-red-500' },
-        { key: 'good', label: 'Fresh', color: 'bg-green-500' },
+        { key: 'good', label: 'Fresh', color: 'bg-emerald-500' },
     ];
 
     return (

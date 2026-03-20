@@ -20,7 +20,7 @@ export function CameraTips() {
     if (!isVisible) return null;
 
     return (
-        <div className="absolute top-4 left-4 right-4 z-50 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-2xl p-4 shadow-2xl animate-slide-down">
+        <div className="absolute top-4 left-4 right-4 z-50 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-3xl p-4 shadow-2xl animate-slide-down">
             <div className="flex items-start gap-3">
                 <Lightbulb className="w-6 h-6 flex-shrink-0 mt-0.5" />
                 <div className="flex-1">

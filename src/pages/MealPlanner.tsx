@@ -153,7 +153,7 @@ export function MealPlanner({ onBack }: MealPlannerProps) {
             {/* Added to list feedback */}
             {addedToList !== null && (
                 <div className="px-4 pb-3">
-                    <div className="bg-green-500/20 border border-green-500/50 rounded-xl p-3 text-center text-green-300 text-sm font-medium">
+                    <div className="bg-emerald-500/20 border border-[var(--accent-color)]/50 rounded-xl p-3 text-center text-emerald-300 text-sm font-medium">
                         Added {addedToList} item{addedToList !== 1 ? 's' : ''} to shopping list!
                     </div>
                 </div>
@@ -162,7 +162,7 @@ export function MealPlanner({ onBack }: MealPlannerProps) {
             {/* Week Grid */}
             <div className="px-4 space-y-3">
                 {DAY_LABELS.map((dayLabel, dayIndex) => (
-                    <div key={dayLabel} className="bg-[var(--bg-secondary)] rounded-2xl p-4 border border-[var(--border-color)] inventory-card">
+                    <div key={dayLabel} className="bg-[var(--bg-secondary)] rounded-3xl p-4 border border-[var(--border-color)] inventory-card">
                         <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wide mb-3">
                             {dayLabel}
                         </h3>

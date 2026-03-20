@@ -5,13 +5,13 @@ import { ChevronLeft, MoreHorizontal, Plus, Check } from 'lucide-react';
 
 // Category definitions
 const CATEGORIES = {
-    produce: { label: 'Produce', color: 'text-green-400' },
+    produce: { label: 'Produce', color: 'text-emerald-400' },
     dairy: { label: 'Dairy & Eggs', color: 'text-blue-400' },
     meat: { label: 'Meat & Seafood', color: 'text-red-400' },
     frozen: { label: 'Frozen', color: 'text-cyan-400' },
     pantry: { label: 'Pantry', color: 'text-amber-400' },
     beverages: { label: 'Beverages', color: 'text-purple-400' },
-    other: { label: 'Other', color: 'text-gray-400' },
+    other: { label: 'Other', color: 'text-[var(--text-muted)]' },
 };
 
 // Running low suggestions
@@ -70,7 +70,7 @@ export function ShoppingList() {
     };
 
     return (
-        <div className="min-h-full bg-[#0f1419] text-white pb-32">
+        <div className="min-h-full bg-[var(--bg-primary)] text-[var(--text-primary)] pb-32">
             {/* Header */}
             <header className="flex items-center justify-between p-4">
                 <button className="p-2 hover:bg-white/10 rounded-lg">
@@ -86,10 +86,10 @@ export function ShoppingList() {
                 {/* Efficiency Score */}
                 <section>
                     <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs text-gray-400 uppercase tracking-wide">Efficiency Score</span>
-                        <span className="text-green-400 font-semibold">{efficiencyScore}% Collected</span>
+                        <span className="text-xs text-[var(--text-muted)] uppercase tracking-wide">Efficiency Score</span>
+                        <span className="text-emerald-400 font-semibold">{efficiencyScore}% Collected</span>
                     </div>
-                    <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                    <div className="h-1.5 bg-[var(--bg-tertiary)] rounded-full overflow-hidden">
                         <div
                             className="h-full bg-gradient-to-r from-green-500 to-emerald-400 rounded-full transition-all"
                             style={{ width: `${efficiencyScore}%` }}
@@ -105,11 +105,11 @@ export function ShoppingList() {
                         onChange={(e) => setNewItemName(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && addItem()}
                         placeholder="Add 2L Milk, Avocados..."
-                        className="flex-1 px-4 py-3.5 bg-[#1a1f2e] border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-green-500"
+                        className="flex-1 px-4 py-3.5 glass-thin border border-[var(--border-color)] rounded-xl text-white placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-color)]"
                     />
                     <button
                         onClick={() => addItem()}
-                        className="px-4 bg-green-500 rounded-xl hover:bg-green-600 transition-colors"
+                        className="px-4 bg-[var(--accent-color)] rounded-xl hover:bg-emerald-600 transition-colors"
                         aria-label="Add item"
                     >
                         <Plus className="w-6 h-6" />
@@ -118,17 +118,17 @@ export function ShoppingList() {
 
                 {/* Running Low Quick-Add */}
                 <section>
-                    <h3 className="text-xs text-gray-400 uppercase tracking-wide mb-3">Running Low</h3>
+                    <h3 className="text-xs text-[var(--text-muted)] uppercase tracking-wide mb-3">Running Low</h3>
                     <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4">
                         {RUNNING_LOW.map((item) => (
                             <button
                                 key={item.name}
                                 onClick={() => addItem(item.name)}
-                                className="flex flex-col items-center min-w-[80px] p-3 bg-[#1a1f2e] rounded-xl border border-gray-800 hover:border-green-500 transition-colors"
+                                className="flex flex-col items-center min-w-[80px] p-3 glass-thin rounded-xl border border-[var(--border-color)] hover:border-[var(--accent-color)] transition-colors"
                             >
                                 <span className="text-2xl mb-1">{item.icon}</span>
-                                <span className="text-xs text-gray-300">{item.name}</span>
-                                <span className="text-[10px] text-gray-500 mt-1">ADD</span>
+                                <span className="text-xs text-[var(--text-secondary)]">{item.name}</span>
+                                <span className="text-[10px] text-[var(--text-muted)] mt-1">ADD</span>
                             </button>
                         ))}
                     </div>
@@ -154,31 +154,31 @@ export function ShoppingList() {
                                         key={item.id}
                                         onClick={() => toggleItem(item.id, item.isChecked)}
                                         className={`w-full flex items-center gap-3 p-4 rounded-xl transition-all ${item.isChecked
-                                            ? 'bg-[#1a1f2e]/50 opacity-60'
-                                            : 'bg-[#1a1f2e] border border-gray-800'
+                                            ? 'glass-thin/50 opacity-60'
+                                            : 'glass-thin border border-[var(--border-color)]'
                                             }`}
                                     >
                                         <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${item.isChecked
-                                            ? 'bg-green-500 border-green-500'
-                                            : 'border-gray-600'
+                                            ? 'bg-[var(--accent-color)] border-[var(--accent-color)]'
+                                            : 'border-[var(--border-color)]'
                                             }`}>
                                             {item.isChecked && <Check className="w-4 h-4 text-white" />}
                                         </div>
                                         <div className="flex-1 text-left">
-                                            <span className={item.isChecked ? 'line-through text-gray-500' : ''}>
+                                            <span className={item.isChecked ? 'line-through text-[var(--text-muted)]' : ''}>
                                                 {item.name}
                                             </span>
                                             {item.metadata && (
-                                                <p className="text-xs text-green-400 mt-0.5">{item.metadata}</p>
+                                                <p className="text-xs text-emerald-400 mt-0.5">{item.metadata}</p>
                                             )}
                                             {item.lastBought && (
-                                                <p className="text-xs text-gray-500 mt-0.5">
+                                                <p className="text-xs text-[var(--text-muted)] mt-0.5">
                                                     Last bought {Math.round((Date.now() - new Date(item.lastBought).getTime()) / (1000 * 60 * 60 * 24))} days ago
                                                 </p>
                                             )}
                                         </div>
                                         {item.unit && (
-                                            <span className="text-gray-400 text-sm">{item.quantity}{item.unit}</span>
+                                            <span className="text-[var(--text-muted)] text-sm">{item.quantity}{item.unit}</span>
                                         )}
                                     </button>
                                 ))}
@@ -190,11 +190,11 @@ export function ShoppingList() {
                 {/* Empty State */}
                 {(!items || items.length === 0) && (
                     <div className="flex flex-col items-center justify-center py-16 text-center">
-                        <div className="w-20 h-20 bg-[#1a1f2e] rounded-full flex items-center justify-center mb-4">
+                        <div className="w-20 h-20 glass-thin rounded-full flex items-center justify-center mb-4">
                             <span className="text-4xl">🛒</span>
                         </div>
                         <h3 className="text-xl font-semibold mb-2">Your list is empty</h3>
-                        <p className="text-gray-400">Add items above or tap "Running Low" suggestions</p>
+                        <p className="text-[var(--text-muted)]">Add items above or tap "Running Low" suggestions</p>
                     </div>
                 )}
             </div>

@@ -207,7 +207,7 @@ export function ReviewItems({ items: initialItems, onConfirm, onClose }: ReviewI
             {feedback && (
                 <div className="px-4 pb-4">
                     <div className={`rounded-xl p-4 flex items-start gap-3 inventory-card ${
-                        feedback.type === 'success' ? 'bg-green-500/20 border border-green-500/50' :
+                        feedback.type === 'success' ? 'bg-emerald-500/20 border border-[var(--accent-color)]/50' :
                         feedback.type === 'warning' ? 'bg-yellow-500/20 border border-yellow-500/50' :
                         'bg-red-500/20 border border-red-500/50'
                     }`}>
@@ -232,14 +232,14 @@ export function ReviewItems({ items: initialItems, onConfirm, onClose }: ReviewI
                 {items.map((item) => (
                     <div
                         key={item.id}
-                        className={`bg-[var(--bg-secondary)] rounded-2xl p-5 border inventory-card ${
+                        className={`bg-[var(--bg-secondary)] rounded-3xl p-5 border inventory-card ${
                             !item.expirationDate ? 'border-orange-500/50 glow-red' : 'border-[var(--border-color)]'
                         }`}
                     >
                         {/* Item Header */}
                         <div className="flex items-start gap-4 mb-4">
                             {/* Image/Emoji */}
-                            <div className="product-image bg-gradient-to-br from-gray-700 to-gray-800 rounded-2xl flex items-center justify-center overflow-hidden">
+                            <div className="product-image bg-gradient-to-br from-gray-700 to-gray-800 rounded-3xl flex items-center justify-center overflow-hidden">
                                 <span className="text-5xl">{getCategoryEmoji(item.category, item.name)}</span>
                             </div>
 
@@ -268,7 +268,7 @@ export function ReviewItems({ items: initialItems, onConfirm, onClose }: ReviewI
                                         <span className={`text-xs flex items-center gap-1 font-semibold ${
                                             item.autoFillConfidence === 'high' ? 'text-purple-400' :
                                             item.autoFillConfidence === 'medium' ? 'text-blue-400' :
-                                            'text-gray-400'
+                                            'text-[var(--text-muted)]'
                                         }`}>
                                             <Sparkles className="w-3 h-3" />
                                             Smart estimate
@@ -343,7 +343,7 @@ export function ReviewItems({ items: initialItems, onConfirm, onClose }: ReviewI
                 {/* Add Manual Item */}
                 <button
                     onClick={addManualItem}
-                    className="w-full py-5 border-2 border-dashed border-[var(--border-color)] rounded-2xl text-[var(--text-secondary)] flex items-center justify-center gap-2 hover:border-[var(--accent-color)] hover:text-[var(--accent-color)] transition-all inventory-card font-semibold"
+                    className="w-full py-5 border-2 border-dashed border-[var(--border-color)] rounded-3xl text-[var(--text-secondary)] flex items-center justify-center gap-2 hover:border-[var(--accent-color)] hover:text-[var(--accent-color)] transition-all inventory-card font-semibold"
                 >
                     <Plus className="w-5 h-5" />
                     Add another item manually
@@ -355,7 +355,7 @@ export function ReviewItems({ items: initialItems, onConfirm, onClose }: ReviewI
                 <button
                     onClick={handleConfirm}
                     disabled={items.length === 0 || isSubmitting || items.every(i => !i.expirationDate)}
-                    className="w-full py-5 bg-[var(--accent-color)] text-white font-bold rounded-2xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed action-button glow-green text-lg"
+                    className="w-full py-5 bg-[var(--accent-color)] text-white font-bold rounded-3xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed action-button glow-green text-lg"
                 >
                     <Check className="w-6 h-6" />
                     {isSubmitting ? 'Adding...' : `Confirm & Add ${items.filter(i => i.expirationDate).length} Item${items.filter(i => i.expirationDate).length !== 1 ? 's' : ''}`}

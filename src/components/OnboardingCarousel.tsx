@@ -48,7 +48,7 @@ export function OnboardingCarousel({ onStartClick }: OnboardingCarouselProps) {
                     src={step.image}
                     alt={step.title}
                     className={`
-            w-full h-full object-contain rounded-2xl
+            w-full h-full object-contain rounded-3xl
             transition-all duration-300 ease-in-out
             ${isTransitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}
           `}
@@ -85,7 +85,7 @@ export function OnboardingCarousel({ onStartClick }: OnboardingCarouselProps) {
                         className={`
               w-2 h-2 rounded-full transition-all duration-300
               ${currentStep === index
-                                ? 'bg-green-500 w-6'
+                                ? 'bg-[var(--accent-color)] w-6'
                                 : 'bg-gray-400 hover:bg-gray-300'}
             `}
                         aria-label={`Go to step ${index + 1}`}

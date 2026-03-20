@@ -64,27 +64,27 @@ export function VoiceAssistant({ onCommand, isEnabled = true }: VoiceAssistantPr
             <button
                 onClick={toggleListening}
                 className={`fixed bottom-36 right-4 w-14 h-14 rounded-full flex items-center justify-center shadow-lg z-50 transition-all ${isListening
-                        ? 'bg-green-500 animate-pulse shadow-green-500/50'
-                        : 'bg-[#1a1f2e] border border-gray-700 hover:border-green-500'
+                        ? 'bg-[var(--accent-color)] animate-pulse shadow-green-500/50'
+                        : 'glass-thin border border-[var(--border-color)] hover:border-[var(--accent-color)]'
                     }`}
                 aria-label={isListening ? 'Stop listening' : 'Start voice assistant'}
             >
                 {isListening ? (
                     <Mic className="w-6 h-6 text-white" />
                 ) : (
-                    <MicOff className="w-6 h-6 text-gray-400" />
+                    <MicOff className="w-6 h-6 text-[var(--text-muted)]" />
                 )}
             </button>
 
             {/* Voice Popup */}
             {showPopup && (
-                <div className="fixed inset-x-4 bottom-52 bg-[#1a1f2e] border border-gray-700 rounded-2xl p-4 z-50 shadow-xl">
+                <div className="fixed inset-x-4 bottom-52 glass-thin border border-[var(--border-color)] rounded-3xl p-4 z-50 shadow-xl">
                     <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-2">
                             {isListening && (
-                                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                                <span className="w-2 h-2 bg-[var(--accent-color)] rounded-full animate-pulse" />
                             )}
-                            <span className="text-sm text-gray-400">
+                            <span className="text-sm text-[var(--text-muted)]">
                                 {isListening ? 'Listening...' : 'Processing...'}
                             </span>
                         </div>
@@ -95,7 +95,7 @@ export function VoiceAssistant({ onCommand, isEnabled = true }: VoiceAssistantPr
                             }}
                             className="p-1 hover:bg-white/10 rounded-lg"
                         >
-                            <X className="w-4 h-4 text-gray-400" />
+                            <X className="w-4 h-4 text-[var(--text-muted)]" />
                         </button>
                     </div>
 
@@ -104,7 +104,7 @@ export function VoiceAssistant({ onCommand, isEnabled = true }: VoiceAssistantPr
                     )}
 
                     {response && (
-                        <p className="text-green-400 text-sm">{response}</p>
+                        <p className="text-emerald-400 text-sm">{response}</p>
                     )}
 
                     {!transcript && isListening && (
@@ -112,7 +112,7 @@ export function VoiceAssistant({ onCommand, isEnabled = true }: VoiceAssistantPr
                             {[...Array(5)].map((_, i) => (
                                 <div
                                     key={i}
-                                    className="w-1 bg-green-500 rounded-full animate-pulse"
+                                    className="w-1 bg-[var(--accent-color)] rounded-full animate-pulse"
                                     style={{
                                         height: `${Math.random() * 20 + 10}px`,
                                         animationDelay: `${i * 0.1}s`,

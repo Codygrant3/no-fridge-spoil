@@ -41,7 +41,7 @@ export function ProfileSwitcher() {
             {/* Profile Button */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)] transition-all hover:border-[var(--accent-color)]/50"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-3xl glass-thin transition-all active:scale-95"
             >
                 {isHousehold ? (
                     <>
@@ -67,11 +67,13 @@ export function ProfileSwitcher() {
                     />
 
                     <div
-                        className="absolute top-full left-0 mt-2 w-64 rounded-2xl overflow-hidden z-50 border border-[var(--border-color)]"
+                        className="absolute top-full left-0 mt-2 w-64 rounded-3xl overflow-hidden z-50"
                         style={{
-                            background: 'rgba(10, 14, 26, 0.95)',
-                            backdropFilter: 'blur(16px)',
-                            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+                            background: 'rgba(4, 40, 28, 0.85)',
+                            backdropFilter: 'blur(40px) saturate(180%)',
+                            WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+                            border: '1px solid rgba(52, 211, 153, 0.1)',
+                            boxShadow: '0 16px 48px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(167, 243, 208, 0.05)',
                         }}
                     >
                         {/* Household Option */}

@@ -282,7 +282,7 @@ export function CookMode({ recipe, items, onClose }: CookModeProps) {
                             <button
                                 onClick={() => toggleIngredient(index)}
                                 className={`w-14 h-14 rounded-xl flex items-center justify-center transition-all inventory-card ${checkedIngredients.has(index)
-                                    ? 'bg-green-500/20 border-2 border-[var(--accent-color)] glow-green'
+                                    ? 'bg-emerald-500/20 border-2 border-[var(--accent-color)] glow-green'
                                     : 'bg-[var(--bg-tertiary)] border-2 border-transparent hover:border-[var(--border-color)]'
                                     }`}
                             >
@@ -359,7 +359,7 @@ export function CookMode({ recipe, items, onClose }: CookModeProps) {
 
                 <button
                     onClick={isLastStep ? onClose : nextStep}
-                    className="flex-1 flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-bold bg-[var(--accent-color)] text-white hover:bg-green-600 transition-all action-button glow-green"
+                    className="flex-1 flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-bold bg-[var(--accent-color)] text-white hover:bg-emerald-600 transition-all action-button glow-green"
                 >
                     {isLastStep ? (
                         <>

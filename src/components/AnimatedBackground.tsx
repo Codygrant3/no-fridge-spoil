@@ -1,76 +1,73 @@
 /**
- * AnimatedBackground - Refined atmospheric background
+ * AnimatedBackground — Apple-style ambient depth
  *
- * Design Philosophy: "Botanical Precision"
- * - Subtle gradient orbs for depth
- * - Noise texture for organic feel
- * - Grid pattern for systematic precision
- * - No floating elements (removed emojis for cleaner aesthetic)
+ * Deep emerald gradient base with soft floating light orbs
+ * and subtle noise for organic texture. Minimal and refined.
  */
 
 export function AnimatedBackground() {
     return (
         <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-            {/* Gradient orbs - refined positioning */}
+            {/* Base gradient — deep emerald to near-black */}
             <div
-                className="absolute -top-32 -right-32 w-96 h-96 rounded-full blur-3xl opacity-30 animate-pulse"
+                className="absolute inset-0"
                 style={{
-                    background: 'radial-gradient(circle, rgba(74, 222, 128, 0.15) 0%, transparent 70%)',
-                    animationDuration: '4s',
-                }}
-            />
-            <div
-                className="absolute -bottom-48 -left-48 w-[500px] h-[500px] rounded-full blur-3xl opacity-20 animate-pulse"
-                style={{
-                    background: 'radial-gradient(circle, rgba(20, 184, 166, 0.12) 0%, transparent 70%)',
-                    animationDuration: '5s',
-                    animationDelay: '1s',
-                }}
-            />
-            <div
-                className="absolute top-1/3 right-0 w-64 h-64 rounded-full blur-2xl opacity-15 animate-pulse"
-                style={{
-                    background: 'radial-gradient(circle, rgba(132, 204, 22, 0.1) 0%, transparent 70%)',
-                    animationDuration: '6s',
-                    animationDelay: '2s',
+                    background: 'radial-gradient(ellipse at 30% 20%, rgba(6, 78, 59, 0.4) 0%, transparent 50%), radial-gradient(ellipse at 70% 80%, rgba(4, 120, 87, 0.2) 0%, transparent 50%), var(--bg-primary)',
                 }}
             />
 
-            {/* Subtle vignette overlay */}
+            {/* Floating light orb — top right */}
             <div
-                className="absolute inset-0 opacity-40"
+                className="absolute -top-24 -right-24 w-80 h-80 rounded-full"
                 style={{
-                    background: 'radial-gradient(ellipse at center, transparent 0%, var(--bg-primary) 100%)',
+                    background: 'radial-gradient(circle, rgba(52, 211, 153, 0.08) 0%, transparent 70%)',
+                    filter: 'blur(60px)',
+                    animation: 'orb-drift 12s ease-in-out infinite',
                 }}
             />
 
-            {/* Noise texture overlay for organic feel */}
+            {/* Floating light orb — bottom left */}
             <div
-                className="absolute inset-0 opacity-[0.015] dark:opacity-[0.03] mix-blend-overlay"
+                className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full"
                 style={{
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
+                    background: 'radial-gradient(circle, rgba(16, 185, 129, 0.06) 0%, transparent 70%)',
+                    filter: 'blur(80px)',
+                    animation: 'orb-drift 16s ease-in-out 4s infinite reverse',
                 }}
             />
 
-            {/* Grid pattern overlay - systematic precision */}
+            {/* Center ambient glow */}
             <div
-                className="absolute inset-0 opacity-[0.02] dark:opacity-[0.04]"
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full"
                 style={{
-                    backgroundImage: `
-                        linear-gradient(to right, currentColor 1px, transparent 1px),
-                        linear-gradient(to bottom, currentColor 1px, transparent 1px)
-                    `,
-                    backgroundSize: '48px 48px',
+                    background: 'radial-gradient(circle, rgba(6, 95, 70, 0.1) 0%, transparent 60%)',
+                    filter: 'blur(100px)',
                 }}
             />
 
-            {/* Subtle horizontal lines - adds depth */}
+            {/* Subtle vignette */}
             <div
-                className="absolute inset-0 opacity-[0.01] dark:opacity-[0.02]"
+                className="absolute inset-0"
                 style={{
-                    backgroundImage: 'repeating-linear-gradient(0deg, currentColor, currentColor 1px, transparent 1px, transparent 120px)',
+                    background: 'radial-gradient(ellipse at center, transparent 40%, var(--bg-primary) 100%)',
                 }}
             />
+
+            {/* Noise texture — very subtle grain */}
+            <div
+                className="absolute inset-0 opacity-[0.025] mix-blend-overlay"
+                style={{
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
+                }}
+            />
+
+            <style>{`
+                @keyframes orb-drift {
+                    0%, 100% { transform: translate(0, 0) scale(1); }
+                    33% { transform: translate(20px, -15px) scale(1.05); }
+                    66% { transform: translate(-10px, 10px) scale(0.95); }
+                }
+            `}</style>
         </div>
     );
 }

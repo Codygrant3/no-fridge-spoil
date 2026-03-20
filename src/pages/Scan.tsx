@@ -345,7 +345,7 @@ export function Scan() {
 
             {/* Camera Viewfinder */}
             <div className="flex-1 flex items-center justify-center p-6 relative">
-                <div className="relative w-full max-w-sm aspect-[3/4] rounded-2xl overflow-hidden bg-black inventory-card glow-green">
+                <div className="relative w-full max-w-sm aspect-[3/4] rounded-3xl overflow-hidden bg-black inventory-card glow-green">
                     {/* Frame corners */}
                     <div className="absolute top-0 left-0 w-12 h-12 border-t-4 border-l-4 border-[var(--accent-color)] rounded-tl-2xl z-20" />
                     <div className="absolute top-0 right-0 w-12 h-12 border-t-4 border-r-4 border-[var(--accent-color)] rounded-tr-2xl z-20" />
@@ -397,7 +397,7 @@ export function Scan() {
             {/* Progress Bar */}
             {isScanning && (
                 <div className="px-6 mb-4">
-                    <div className="bg-[var(--bg-secondary)] backdrop-blur-sm rounded-2xl p-5 border border-[var(--border-color)] inventory-card">
+                    <div className="bg-[var(--bg-secondary)] backdrop-blur-sm rounded-3xl p-5 border border-[var(--border-color)] inventory-card">
                         <div className="flex items-center justify-between mb-3">
                             <span className="text-white text-sm font-bold tracking-wide">
                                 {scanMode === 'receipt' ? 'PROCESSING RECEIPT' : 'SCANNING ITEM'}
@@ -423,15 +423,15 @@ export function Scan() {
                                 <img
                                     src={scan.thumbnail}
                                     alt="queued scan"
-                                    className="w-16 h-16 rounded-lg object-cover border-2 border-gray-700"
+                                    className="w-16 h-16 rounded-lg object-cover border-2 border-[var(--border-color)]"
                                 />
                                 {scan.status === 'processing' && (
                                     <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-lg">
-                                        <Loader2 className="w-4 h-4 text-green-400 animate-spin" />
+                                        <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
                                     </div>
                                 )}
                                 {scan.status === 'completed' && (
-                                    <div className="absolute -top-1 -right-1 bg-green-500 rounded-full p-0.5">
+                                    <div className="absolute -top-1 -right-1 bg-[var(--accent-color)] rounded-full p-0.5">
                                         <Check className="w-3 h-3 text-white" />
                                     </div>
                                 )}

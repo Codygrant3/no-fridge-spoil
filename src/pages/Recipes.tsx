@@ -156,8 +156,8 @@ export function Recipes({ onNavigateToPlanner }: RecipesProps = {}) {
                     <button
                         onClick={() => setActiveFilter('all')}
                         className={`flex-1 py-2.5 px-4 rounded-full text-sm font-medium transition-colors ${activeFilter === 'all'
-                                ? 'bg-green-500 text-white'
-                                : 'text-gray-400'
+                                ? 'bg-[var(--accent-color)] text-white'
+                                : 'text-[var(--text-muted)]'
                             }`}
                     >
                         All Recipes
@@ -165,8 +165,8 @@ export function Recipes({ onNavigateToPlanner }: RecipesProps = {}) {
                     <button
                         onClick={() => setActiveFilter('fridge')}
                         className={`flex-1 py-2.5 px-4 rounded-full text-sm font-medium transition-colors ${activeFilter === 'fridge'
-                                ? 'bg-green-500 text-white'
-                                : 'text-gray-400'
+                                ? 'bg-[var(--accent-color)] text-white'
+                                : 'text-[var(--text-muted)]'
                             }`}
                     >
                         In My Fridge
@@ -177,7 +177,7 @@ export function Recipes({ onNavigateToPlanner }: RecipesProps = {}) {
                 {onNavigateToPlanner && (
                     <button
                         onClick={onNavigateToPlanner}
-                        className="w-full mb-6 p-4 bg-gradient-to-r from-purple-500/20 to-blue-500/20 border border-purple-500/40 rounded-2xl flex items-center gap-4 hover:from-purple-500/30 hover:to-blue-500/30 transition-all"
+                        className="w-full mb-6 p-4 bg-gradient-to-r from-purple-500/20 to-blue-500/20 border border-purple-500/40 rounded-3xl flex items-center gap-4 hover:from-purple-500/30 hover:to-blue-500/30 transition-all"
                     >
                         <div className="w-12 h-12 rounded-xl bg-purple-500/30 flex items-center justify-center shrink-0">
                             <CalendarDays className="w-6 h-6 text-purple-300" />
@@ -205,17 +205,17 @@ export function Recipes({ onNavigateToPlanner }: RecipesProps = {}) {
                                 <button
                                     key={index}
                                     onClick={() => setSelectedRecipe(recipe)}
-                                    className="min-w-[200px] bg-[#1a2f1f] rounded-2xl overflow-hidden border border-green-900/30"
+                                    className="min-w-[200px] bg-[#1a2f1f] rounded-3xl overflow-hidden border border-green-900/30"
                                 >
                                     {/* Image Placeholder */}
                                     <div className="h-28 bg-gradient-to-br from-gray-700 to-gray-800 relative">
-                                        <span className="absolute top-2 right-2 px-2 py-1 bg-green-500 text-white text-xs font-bold rounded-lg">
+                                        <span className="absolute top-2 right-2 px-2 py-1 bg-[var(--accent-color)] text-white text-xs font-bold rounded-lg">
                                             {recipe.percentage}% Match
                                         </span>
                                     </div>
                                     <div className="p-3">
                                         <h3 className="text-white font-semibold text-left">{recipe.title}</h3>
-                                        <p className="text-gray-400 text-xs mt-1 flex items-center gap-1">
+                                        <p className="text-[var(--text-muted)] text-xs mt-1 flex items-center gap-1">
                                             <Clock className="w-3 h-3" />
                                             {getCookMinutes(recipe.cookTime)} MINS • USE: {recipe.matched.slice(0, 2).join(', ').toUpperCase()}
                                         </p>
@@ -235,12 +235,12 @@ export function Recipes({ onNavigateToPlanner }: RecipesProps = {}) {
                             <button
                                 key={index}
                                 onClick={() => setSelectedRecipe(recipe)}
-                                className="bg-[#1a2f1f] rounded-2xl overflow-hidden border border-green-900/30 text-left"
+                                className="bg-[#1a2f1f] rounded-3xl overflow-hidden border border-green-900/30 text-left"
                             >
                                 {/* Image Placeholder */}
                                 <div className="h-28 bg-gradient-to-br from-gray-700 to-gray-800 relative">
                                     {recipe.percentage >= 50 ? (
-                                        <span className="absolute top-2 left-2 px-2 py-1 bg-green-500 text-white text-xs font-bold rounded-lg">
+                                        <span className="absolute top-2 left-2 px-2 py-1 bg-[var(--accent-color)] text-white text-xs font-bold rounded-lg">
                                             {recipe.percentage}% Match
                                         </span>
                                     ) : recipe.missing > 0 && (
@@ -251,7 +251,7 @@ export function Recipes({ onNavigateToPlanner }: RecipesProps = {}) {
                                 </div>
                                 <div className="p-3">
                                     <h3 className="text-white font-semibold">{recipe.title}</h3>
-                                    <p className="text-green-400 text-xs mt-1 flex items-center gap-1">
+                                    <p className="text-emerald-400 text-xs mt-1 flex items-center gap-1">
                                         <Clock className="w-3 h-3" />
                                         {getCookMinutes(recipe.cookTime)} MINS • {recipe.difficulty.toUpperCase()}
                                     </p>
@@ -265,7 +265,7 @@ export function Recipes({ onNavigateToPlanner }: RecipesProps = {}) {
             {/* Floating Filters Button */}
             <button
                 onClick={() => setShowFilters(!showFilters)}
-                className="fixed bottom-24 left-1/2 -translate-x-1/2 px-6 py-3 bg-[#1a2f1f] border border-green-900/50 rounded-full flex items-center gap-2 shadow-lg"
+                className="fixed bottom-24 left-1/2 -translate-x-1/2 px-6 py-3 bg-[#1a2f1f] border border-[var(--border-color)] rounded-full flex items-center gap-2 shadow-lg"
             >
                 <SlidersHorizontal className="w-4 h-4 text-white" />
                 <span className="text-white font-medium">Filters</span>

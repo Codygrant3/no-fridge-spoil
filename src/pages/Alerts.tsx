@@ -48,11 +48,11 @@ export function Alerts() {
         <div className="min-h-full bg-[#0a1f0f] flex flex-col pb-24">
             {/* Header */}
             <header className="flex items-center justify-between p-4 pt-12">
-                <button className="w-10 h-10 rounded-full flex items-center justify-center bg-gray-800/50">
+                <button className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--bg-tertiary)]/50">
                     <ChevronLeft className="w-6 h-6 text-white" />
                 </button>
                 <div className="flex-1" />
-                <button className="w-10 h-10 rounded-full flex items-center justify-center bg-gray-800/50">
+                <button className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--bg-tertiary)]/50">
                     <Settings className="w-5 h-5 text-white" />
                 </button>
             </header>
@@ -78,7 +78,7 @@ export function Alerts() {
                                 return (
                                     <div
                                         key={item.id}
-                                        className="bg-[#1a2f1f] rounded-2xl p-4 border border-green-900/30"
+                                        className="bg-[#1a2f1f] rounded-3xl p-4 border border-green-900/30"
                                     >
                                         <div className="flex items-start gap-4">
                                             {/* Image */}
@@ -95,19 +95,19 @@ export function Alerts() {
                                                 <h3 className="text-white text-lg font-semibold mt-1">
                                                     {item.name}
                                                 </h3>
-                                                <p className="text-gray-400 text-sm">
+                                                <p className="text-[var(--text-muted)] text-sm">
                                                     {item.quantity} {item.quantity > 1 ? 'items' : 'item'} remaining
                                                 </p>
 
                                                 {/* Action Buttons */}
                                                 <div className="flex gap-2 mt-3">
                                                     {isToday ? (
-                                                        <button className="px-4 py-2 bg-green-500/20 text-green-400 text-sm font-semibold rounded-lg flex items-center gap-2">
+                                                        <button className="px-4 py-2 bg-emerald-500/20 text-emerald-400 text-sm font-semibold rounded-lg flex items-center gap-2">
                                                             <CheckCircle className="w-4 h-4" />
                                                             Use Now
                                                         </button>
                                                     ) : (
-                                                        <button className="px-4 py-2 bg-green-500/20 text-green-400 text-sm font-semibold rounded-lg flex items-center gap-2">
+                                                        <button className="px-4 py-2 bg-emerald-500/20 text-emerald-400 text-sm font-semibold rounded-lg flex items-center gap-2">
                                                             <ChefHat className="w-4 h-4" />
                                                             View Recipes
                                                         </button>
@@ -136,7 +136,7 @@ export function Alerts() {
                             {lowStockItems.map((item) => (
                                 <div
                                     key={item.id}
-                                    className="bg-[#1a2f1f] rounded-2xl p-4 border border-green-900/30"
+                                    className="bg-[#1a2f1f] rounded-3xl p-4 border border-green-900/30"
                                 >
                                     <div className="flex items-start gap-4">
                                         {/* Image */}
@@ -152,12 +152,12 @@ export function Alerts() {
                                             <h3 className="text-white text-lg font-semibold mt-1">
                                                 {item.name}
                                             </h3>
-                                            <p className="text-gray-400 text-sm">
+                                            <p className="text-[var(--text-muted)] text-sm">
                                                 Minimum stock: 6
                                             </p>
 
                                             {/* Action Button */}
-                                            <button className="mt-3 px-4 py-2 bg-green-500/20 text-green-400 text-sm font-semibold rounded-lg flex items-center gap-2">
+                                            <button className="mt-3 px-4 py-2 bg-emerald-500/20 text-emerald-400 text-sm font-semibold rounded-lg flex items-center gap-2">
                                                 <ShoppingCart className="w-4 h-4" />
                                                 Add to List
                                             </button>
@@ -172,10 +172,10 @@ export function Alerts() {
                 {/* All Caught Up */}
                 {allCaughtUp && (
                     <div className="flex flex-col items-center justify-center py-16">
-                        <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mb-4">
-                            <CheckCircle className="w-8 h-8 text-green-400" />
+                        <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mb-4">
+                            <CheckCircle className="w-8 h-8 text-emerald-400" />
                         </div>
-                        <p className="text-gray-400">All caught up!</p>
+                        <p className="text-[var(--text-muted)]">All caught up!</p>
                     </div>
                 )}
             </div>

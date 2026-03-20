@@ -113,7 +113,7 @@ export function BarcodeScanner({ isOpen, onClose, onProductFound }: BarcodeScann
                 </div>
                 <button
                     onClick={handleClose}
-                    className="p-2 rounded-full bg-gray-800 text-white"
+                    className="p-2 rounded-full bg-[var(--bg-tertiary)] text-white"
                     aria-label="Close scanner"
                 >
                     <X className="w-5 h-5" />
@@ -139,7 +139,7 @@ export function BarcodeScanner({ isOpen, onClose, onProductFound }: BarcodeScann
                             value={manualBarcode}
                             onChange={(e) => setManualBarcode(e.target.value)}
                             placeholder="Enter barcode numbers..."
-                            className="w-full p-4 bg-gray-800 text-white rounded-xl text-lg text-center tracking-widest mb-4"
+                            className="w-full p-4 bg-[var(--bg-tertiary)] text-white rounded-xl text-lg text-center tracking-widest mb-4"
                             autoFocus
                         />
                         <button
@@ -155,13 +155,13 @@ export function BarcodeScanner({ isOpen, onClose, onProductFound }: BarcodeScann
                         {/* Camera Capture Button */}
                         <button
                             onClick={() => fileInputRef.current?.click()}
-                            className="w-full p-8 bg-gray-900 rounded-xl flex flex-col items-center justify-center mb-4 active:bg-gray-800 transition-colors"
+                            className="w-full p-8 bg-gray-900 rounded-xl flex flex-col items-center justify-center mb-4 active:bg-[var(--bg-tertiary)] transition-colors"
                         >
                             <div className="w-20 h-20 rounded-full bg-green-600 flex items-center justify-center mb-4">
                                 <Camera className="w-10 h-10 text-white" />
                             </div>
                             <p className="text-white text-lg font-semibold mb-1">Take Photo of Barcode</p>
-                            <p className="text-gray-400 text-sm text-center">
+                            <p className="text-[var(--text-muted)] text-sm text-center">
                                 Point your camera at the barcode and take a picture
                             </p>
                         </button>
@@ -172,10 +172,10 @@ export function BarcodeScanner({ isOpen, onClose, onProductFound }: BarcodeScann
                                 setShowManualEntry(true);
                                 setError(null);
                             }}
-                            className="w-full p-4 bg-gray-800 rounded-xl flex items-center justify-center gap-3"
+                            className="w-full p-4 bg-[var(--bg-tertiary)] rounded-xl flex items-center justify-center gap-3"
                         >
-                            <Keyboard className="w-5 h-5 text-gray-400" />
-                            <span className="text-gray-400">Enter barcode manually</span>
+                            <Keyboard className="w-5 h-5 text-[var(--text-muted)]" />
+                            <span className="text-[var(--text-muted)]">Enter barcode manually</span>
                         </button>
                     </div>
                 )}

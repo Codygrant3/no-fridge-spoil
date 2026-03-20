@@ -57,7 +57,7 @@ export function EatThisTonightWidget({ expiringItems, onCookNow }: EatThisTonigh
     // Loading state
     if (loading) {
         return (
-            <div className="glass-card-elevated rounded-2xl p-5 glow-amber animate-fade-in">
+            <div className="glass-card-elevated rounded-3xl p-5 glow-amber animate-fade-in">
                 <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
                         <ChefHat className="w-5 h-5 text-amber-400" />
@@ -85,7 +85,7 @@ export function EatThisTonightWidget({ expiringItems, onCookNow }: EatThisTonigh
     const usedItemsText = recipe.usedIngredients.slice(0, 3).join(' • ');
 
     return (
-        <div className="glass-card-elevated rounded-2xl overflow-hidden glow-amber animate-scale-in">
+        <div className="glass-card-elevated rounded-3xl overflow-hidden glow-amber animate-scale-in">
             {/* Header */}
             <div className="p-5 pb-4">
                 <div className="flex items-center gap-3 mb-4">

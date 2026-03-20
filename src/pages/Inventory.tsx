@@ -206,19 +206,19 @@ export function Inventory({ onNavigate }: InventoryProps) {
         return (
             <div
                 key={item.id}
-                className={`animate-reveal delay-${Math.min(index, 8)} inventory-card glass-card-elevated rounded-2xl overflow-hidden ${cardClass}`}
+                className={`animate-reveal delay-${Math.min(index, 8)} inventory-card glass-card-elevated rounded-3xl overflow-hidden ${cardClass}`}
                 style={{ '--index': index } as React.CSSProperties}
                 onTouchStart={(e) => handleTouchStart(item.id, e)}
                 onTouchEnd={(e) => handleTouchEnd(item.id, e)}
             >
                 <div className="p-4 flex gap-4">
                     {/* Food emoji icon */}
-                    <div className={`w-16 h-16 rounded-xl flex items-center justify-center text-3xl ${
+                    <div className={`w-14 h-14 rounded-3xl flex items-center justify-center text-2xl ${
                         variant === 'critical'
-                            ? 'bg-red-500/20'
+                            ? 'bg-red-500/10'
                             : variant === 'warning'
-                                ? 'bg-amber-500/20'
-                                : 'bg-green-500/20'
+                                ? 'bg-amber-500/10'
+                                : 'bg-emerald-500/10'
                     }`}>
                         {emoji}
                     </div>
@@ -248,7 +248,7 @@ export function Inventory({ onNavigate }: InventoryProps) {
                                 </span>
                                 <span className={`font-mono font-semibold ${
                                     freshness <= 20 ? 'text-red-400' :
-                                    freshness <= 40 ? 'text-amber-400' : 'text-green-400'
+                                    freshness <= 40 ? 'text-amber-400' : 'text-emerald-400'
                                 }`}>
                                     {freshness}%
                                 </span>
@@ -288,7 +288,7 @@ export function Inventory({ onNavigate }: InventoryProps) {
                     )}
                     <button
                         onClick={() => consumeItem(item.id)}
-                        className="flex-1 flex items-center justify-center gap-2 py-3 text-green-400 hover:bg-green-400/10 transition-colors text-sm font-medium"
+                        className="flex-1 flex items-center justify-center gap-2 py-3 text-emerald-400 hover:bg-emerald-400/10 transition-colors text-sm font-medium"
                     >
                         <Check className="w-4 h-4" />
                         Used
@@ -315,11 +315,11 @@ export function Inventory({ onNavigate }: InventoryProps) {
         return (
             <div
                 key={item.id}
-                className={`animate-reveal delay-${Math.min(index, 8)} glass-card rounded-xl p-3 flex items-center gap-3`}
+                className={`animate-reveal delay-${Math.min(index, 8)} glass-thin rounded-3xl p-3.5 flex items-center gap-3`}
                 onTouchStart={(e) => handleTouchStart(item.id, e)}
                 onTouchEnd={(e) => handleTouchEnd(item.id, e)}
             >
-                <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center text-xl">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-lg">
                     {emoji}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -339,19 +339,19 @@ export function Inventory({ onNavigate }: InventoryProps) {
     return (
         <div className="min-h-full bg-[var(--bg-primary)] text-[var(--text-primary)] pb-32">
             {/* Header */}
-            <header className="p-4 flex items-center justify-between">
+            <header className="px-5 pt-14 pb-2 flex items-center justify-between">
                 <ProfileSwitcher />
-                <h1 className="font-display text-xl font-semibold tracking-tight">No Fridge Spoil</h1>
-                <div className="flex items-center gap-1">
+                <h1 className="font-display text-lg font-semibold tracking-tight text-[var(--text-primary)]">My Kitchen</h1>
+                <div className="flex items-center gap-0.5">
                     <button
                         onClick={() => setShowFilters(!showFilters)}
-                        className="p-2 hover:bg-white/5 rounded-xl transition-colors"
+                        className="p-2.5 rounded-xl transition-colors active:bg-white/5"
                     >
                         <Search className="w-5 h-5 text-[var(--text-muted)]" />
                     </button>
                     <button
                         onClick={() => setShowFilters(!showFilters)}
-                        className="p-2 hover:bg-white/5 rounded-xl transition-colors"
+                        className="p-2.5 rounded-xl transition-colors active:bg-white/5"
                     >
                         <SlidersHorizontal className="w-5 h-5 text-[var(--text-muted)]" />
                     </button>
@@ -360,55 +360,55 @@ export function Inventory({ onNavigate }: InventoryProps) {
 
             {/* Search Bar */}
             {showFilters && (
-                <div className="px-4 pb-4 animate-fade-in">
+                <div className="px-5 pb-4 animate-fade-in">
                     <input
                         type="text"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder="Search items..."
-                        className="w-full px-4 py-3 glass-card rounded-xl text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/50"
+                        className="w-full px-4 py-3.5 glass-thin rounded-3xl text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)]/30"
                     />
                 </div>
             )}
 
             {/* Stats Dashboard */}
-            <div className="px-4 mb-6">
-                <div className="glass-card-elevated rounded-2xl p-5 animate-reveal">
+            <div className="px-5 mb-6">
+                <div className="glass-card-elevated rounded-3xl p-5 animate-reveal">
                     {/* Freshness Score */}
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between mb-5">
                         <div>
-                            <p className="text-sm text-[var(--text-muted)] mb-1">Overall Freshness</p>
+                            <p className="text-xs text-[var(--text-muted)] uppercase tracking-widest mb-1.5">Tracked Items</p>
                             <div className="flex items-baseline gap-2">
-                                <span className="font-display text-4xl font-bold text-[var(--text-primary)]">
+                                <span className="font-display text-4xl font-bold text-[var(--text-primary)] tracking-tight">
                                     {stats.total}
                                 </span>
-                                <span className="text-[var(--text-secondary)]">items</span>
+                                <span className="text-sm text-[var(--text-muted)]">items</span>
                             </div>
                         </div>
                         <div className="text-right">
-                            <div className={`font-mono text-3xl font-bold ${
-                                stats.freshnessScore >= 70 ? 'text-green-400' :
+                            <div className={`font-mono text-3xl font-bold tracking-tight ${
+                                stats.freshnessScore >= 70 ? 'text-emerald-400' :
                                 stats.freshnessScore >= 40 ? 'text-amber-400' : 'text-red-400'
                             }`}>
                                 {stats.freshnessScore}%
                             </div>
-                            <p className="text-xs text-[var(--text-muted)]">freshness score</p>
+                            <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest">Freshness</p>
                         </div>
                     </div>
 
                     {/* Mini stats row */}
-                    <div className="grid grid-cols-3 gap-3">
-                        <div className="text-center p-2 rounded-lg bg-red-500/10">
-                            <p className="font-mono text-xl font-bold text-red-400">{stats.urgent}</p>
-                            <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wide">Urgent</p>
+                    <div className="grid grid-cols-3 gap-2">
+                        <div className="text-center py-2.5 px-2 rounded-3xl glass-ultra-thin">
+                            <p className="font-mono text-lg font-bold text-red-400">{stats.urgent}</p>
+                            <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-widest mt-0.5">Urgent</p>
                         </div>
-                        <div className="text-center p-2 rounded-lg bg-amber-500/10">
-                            <p className="font-mono text-xl font-bold text-amber-400">{stats.soon}</p>
-                            <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wide">This Week</p>
+                        <div className="text-center py-2.5 px-2 rounded-3xl glass-ultra-thin">
+                            <p className="font-mono text-lg font-bold text-amber-400">{stats.soon}</p>
+                            <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-widest mt-0.5">This Week</p>
                         </div>
-                        <div className="text-center p-2 rounded-lg bg-green-500/10">
-                            <p className="font-mono text-xl font-bold text-green-400">{stats.good}</p>
-                            <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wide">Fresh</p>
+                        <div className="text-center py-2.5 px-2 rounded-3xl glass-ultra-thin">
+                            <p className="font-mono text-lg font-bold text-emerald-400">{stats.good}</p>
+                            <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-widest mt-0.5">Fresh</p>
                         </div>
                     </div>
                 </div>
@@ -456,8 +456,8 @@ export function Inventory({ onNavigate }: InventoryProps) {
             {categorizedItems.allGood.length > 0 && (
                 <section className="animate-reveal delay-4">
                     <div className="flex items-center gap-2 px-4 mb-3">
-                        <div className="w-2 h-2 rounded-full bg-green-500" />
-                        <h2 className="font-display text-lg font-semibold text-green-400">All Fresh</h2>
+                        <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                        <h2 className="font-display text-lg font-semibold text-emerald-400">All Fresh</h2>
                         <span className="status-badge status-fresh ml-auto">{categorizedItems.allGood.length}</span>
                     </div>
                     <div className="px-4 space-y-2">
@@ -529,7 +529,7 @@ export function Inventory({ onNavigate }: InventoryProps) {
                     {/* CTA Button */}
                     <button
                         onClick={() => onNavigate?.('scan')}
-                        className="action-button btn-primary px-8 py-4 rounded-2xl flex items-center gap-3 text-lg group"
+                        className="action-button btn-primary px-8 py-4 rounded-3xl flex items-center gap-3 text-lg group"
                     >
                         <Sparkles className="w-5 h-5" />
                         Start Scanning
