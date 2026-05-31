@@ -6,9 +6,41 @@ import { ReviewItems, type ScannedItem } from '../components/ReviewItems';
 import { BarcodeScanner } from '../components/BarcodeScanner';
 import { generateUUID } from '../utils/uuid';
 import { compressImage, compressReceiptImage } from '../services/imageCompressionService';
-import { analyzeReceipt } from '../services/receiptOCRService';
+import {
+    analyzeReceipt,
+    checkGeminiReceiptHealth,
+    classifyReceiptOcrError,
+    clearQueuedReceiptScan,
+    getGeminiReceiptDiagnostics,
+    getQueuedReceiptScans,
+    queueReceiptScan,
+    type QueuedReceiptScan,
+    type ReceiptAnalysisResult,
+} from '../services/receiptOCRService';
 import { ScanQueue, type QueuedScan } from '../services/scanQueueService';
 import { getShelfLifeDefaults, estimateExpirationDate } from '../services/sealedShelfLifeService';
+import { getDefaultSampleReceipt } from '../services/sampleReceiptService';
+import { checkReceiptImageQuality, type ReceiptImageQualityIssue } from '../services/receiptImageQualityService';
+import {
+    clearReceiptPrivacyData,
+    getReceiptHistory,
+    getReceiptPrivacySettings,
+    saveReceiptHistory,
+    setReceiptPrivacySettings,
+    type ReceiptHistoryEntry,
+    type ReceiptPrivacySettings,
+} from '../services/receiptHistoryService';
+
+type ReceiptStepStatus = 'idle' | 'active' | 'done' | 'error';
+type ReceiptSource = 'camera' | 'gallery' | 'sample';
+
+const initialReceiptSteps: Record<string, ReceiptStepStatus> = {
+    uploaded: 'idle',
+    compressed: 'idle',
+    sent: 'idle',
+    parsed: 'idle',
+    review: 'idle',
+};
 
 export function Scan() {
     const [isScanning, setIsScanning] = useState(false);
@@ -21,6 +53,23 @@ export function Scan() {
     const [queuedScans, setQueuedScans] = useState<QueuedScan[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
+    const [receiptSteps, setReceiptSteps] = useState(initialReceiptSteps);
+    const [receiptDiagnostics, setReceiptDiagnostics] = useState(() => getGeminiReceiptDiagnostics());
+    const [isCheckingReceiptHealth, setIsCheckingReceiptHealth] = useState(false);
+    const [queuedReceipts, setQueuedReceipts] = useState<QueuedReceiptScan[]>(() => getQueuedReceiptScans());
+    const [lastReceiptFile, setLastReceiptFile] = useState<File | null>(null);
+    const [receiptQualityIssues, setReceiptQualityIssues] = useState<ReceiptImageQualityIssue[]>([]);
+    const [receiptHistory, setReceiptHistory] = useState<ReceiptHistoryEntry[]>(() => getReceiptHistory());
+    const [receiptPrivacy, setReceiptPrivacy] = useState<ReceiptPrivacySettings>(() => getReceiptPrivacySettings());
+    const [receiptMeta, setReceiptMeta] = useState<{
+        storeName?: string;
+        date?: string;
+        skippedItems?: string[];
+        source?: ReceiptSource;
+        previewUrl?: string;
+        cacheHit?: boolean;
+        estimatedCostCents?: number;
+    } | undefined>();
 
     // Live camera state
     const [cameraActive, setCameraActive] = useState(false);
@@ -86,15 +135,21 @@ export function Scan() {
         };
     }, [stopCamera]);
 
-    // Initialize/cleanup scan queue when batch mode toggles
-    useEffect(() => {
-        if (batchMode) {
-            setScanQueue(new ScanQueue((queue) => setQueuedScans(queue)));
-        } else {
-            setScanQueue(null);
-            setQueuedScans([]);
-        }
-    }, [batchMode]);
+    const toggleBatchMode = useCallback(() => {
+        setBatchMode(prev => {
+            const next = !prev;
+            if (next) {
+                setScanQueue(new ScanQueue((queue) => setQueuedScans(queue)));
+            } else {
+                setScanQueue(current => {
+                    current?.clear();
+                    return null;
+                });
+                setQueuedScans([]);
+            }
+            return next;
+        });
+    }, []);
 
     const getCategoryFromResult = useCallback((result: VisionAnalysisResult): string => {
         if (result.category === 'fresh_produce') return 'Produce Section';
@@ -116,16 +171,67 @@ export function Scan() {
         }];
     }, [getCategoryFromResult]);
 
-    const processImage = useCallback(async (file: File) => {
+    const markReceiptStep = useCallback((step: keyof typeof initialReceiptSteps, status: ReceiptStepStatus) => {
+        setReceiptSteps(prev => ({ ...prev, [step]: status }));
+    }, []);
+
+    const mapReceiptResultToItems = useCallback((receiptResult: ReceiptAnalysisResult): ScannedItem[] => {
+        return receiptResult.items.map(item => ({
+            id: generateUUID(),
+            name: item.name,
+            brand: item.brand,
+            category: getShelfLifeDefaults(item.name)?.category || item.category,
+            confidence: item.confidence,
+            expirationDate: '',
+            quantity: item.quantity,
+            sourceLine: item.sourceLine,
+            sourceRegion: item.sourceRegion,
+        }));
+    }, []);
+
+    const buildReceiptPreview = useCallback((file: File): string | undefined => {
+        return URL.createObjectURL(file);
+    }, []);
+
+    const runReceiptHealthCheck = useCallback(async () => {
+        setIsCheckingReceiptHealth(true);
+        try {
+            setReceiptDiagnostics(await checkGeminiReceiptHealth());
+        } finally {
+            setIsCheckingReceiptHealth(false);
+        }
+    }, []);
+
+    const processImage = useCallback(async (file: File, source: ReceiptSource = 'gallery') => {
         setIsScanning(true);
         setProgress(0);
         setError(null);
         stopCamera();
+        setReceiptMeta(undefined);
+        if (scanMode === 'receipt') {
+            setLastReceiptFile(file);
+            const quality = await checkReceiptImageQuality(file);
+            setReceiptQualityIssues(quality.issues);
+            if (!quality.ok) {
+                setIsScanning(false);
+                setError(quality.issues.map(issue => issue.message).join(' '));
+                setReceiptSteps({ ...initialReceiptSteps, uploaded: 'error' });
+                return;
+            }
+        }
+        if (scanMode === 'receipt') {
+            setReceiptSteps({ ...initialReceiptSteps, uploaded: 'done', compressed: 'active' });
+            setReceiptDiagnostics(getGeminiReceiptDiagnostics());
+        }
 
         // Compress image based on scan mode
         const compressedFile = scanMode === 'receipt'
             ? await compressReceiptImage(file)
             : await compressImage(file);
+        if (scanMode === 'receipt') {
+            markReceiptStep('compressed', 'done');
+            markReceiptStep('sent', 'active');
+        }
 
         // Progress simulation
         const progressInterval = setInterval(() => {
@@ -136,21 +242,30 @@ export function Scan() {
             if (scanMode === 'receipt') {
                 // RECEIPT MODE - Process entire receipt
                 const receiptResult = await analyzeReceipt(compressedFile);
+                markReceiptStep('sent', 'done');
+                markReceiptStep('parsed', 'done');
                 clearInterval(progressInterval);
                 setProgress(100);
 
-                // Convert receipt items to ScannedItem format
-                const items: ScannedItem[] = receiptResult.items.map(item => ({
-                    id: generateUUID(),
-                    name: item.name,
-                    brand: item.brand,
-                    category: item.category,
-                    confidence: item.confidence,
-                    expirationDate: '', // User will fill in review
-                    quantity: item.quantity,
-                }));
+                const items = mapReceiptResultToItems(receiptResult);
+                const previewUrl = buildReceiptPreview(file);
 
                 setScannedItems(items);
+                setReceiptMeta({
+                    storeName: receiptResult.storeName,
+                    date: receiptResult.date,
+                    skippedItems: receiptResult.skippedItems,
+                    source,
+                    previewUrl,
+                    cacheHit: receiptResult.cacheHit,
+                    estimatedCostCents: receiptResult.estimatedCostCents,
+                });
+                saveReceiptHistory(receiptResult, {
+                    source,
+                    previewUrl,
+                    cacheHit: receiptResult.cacheHit,
+                });
+                setReceiptHistory(getReceiptHistory());
             } else {
                 // SINGLE ITEM MODE - Process single item
                 const result = await analyzeImage(compressedFile);
@@ -163,6 +278,9 @@ export function Scan() {
 
             setTimeout(() => {
                 setIsScanning(false);
+                if (scanMode === 'receipt') {
+                    markReceiptStep('review', 'done');
+                }
                 setShowReview(true);
             }, 300);
         } catch (err) {
@@ -172,13 +290,83 @@ export function Scan() {
             setProgress(0);
 
             const error = err as Error;
-            if (error.message.includes('API Key')) {
+            if (scanMode === 'receipt') {
+                const diagnostics = classifyReceiptOcrError(error);
+                setReceiptDiagnostics(diagnostics);
+                setReceiptSteps(prev => {
+                    const activeStep = Object.entries(prev).find(([, status]) => status === 'active')?.[0];
+                    return activeStep ? { ...prev, [activeStep]: 'error' } : { ...prev, parsed: 'error' };
+                });
+                if (lastReceiptFile || file) {
+                    queueReceiptScan(file, diagnostics.message)
+                        .then(() => setQueuedReceipts(getQueuedReceiptScans()))
+                        .catch(queueError => console.warn('Receipt queue failed:', queueError));
+                }
+            }
+
+            if (error.message.includes('API Key') || error.message.includes('VITE_GEMINI_API_KEY')) {
                 setError('Gemini API key not configured. Add VITE_GEMINI_API_KEY to your .env file.');
             } else {
                 setError(`Scan failed: ${error.message}`);
             }
         }
-    }, [stopCamera, parseResultToItems, scanMode]);
+    }, [stopCamera, parseResultToItems, scanMode, markReceiptStep, mapReceiptResultToItems, buildReceiptPreview, lastReceiptFile]);
+
+    const retryQueuedReceipt = useCallback(async (queued: QueuedReceiptScan) => {
+        const response = await fetch(queued.dataUrl);
+        const blob = await response.blob();
+        const file = new File([blob], queued.name, { type: queued.type });
+        clearQueuedReceiptScan(queued.id);
+        setQueuedReceipts(getQueuedReceiptScans());
+        await processImage(file, 'gallery');
+    }, [processImage]);
+
+    const loadSampleReceipt = useCallback(() => {
+        const sample = getDefaultSampleReceipt();
+        setScanMode('receipt');
+        setError(null);
+        setReceiptSteps({
+            uploaded: 'done',
+            compressed: 'done',
+            sent: 'done',
+            parsed: 'done',
+            review: 'done',
+        });
+        setReceiptDiagnostics({
+            configured: true,
+            reachable: 'ok',
+            status: 'configured',
+            message: 'Sample receipt loaded locally. Gemini was not called.',
+        });
+        setReceiptMeta({
+            storeName: sample.result.storeName,
+            date: sample.result.date,
+            skippedItems: sample.result.skippedItems,
+            source: 'sample',
+            previewUrl: sample.imageDataUrl,
+            cacheHit: false,
+            estimatedCostCents: 0,
+        });
+        saveReceiptHistory(sample.result, {
+            source: 'sample',
+            previewUrl: sample.imageDataUrl,
+            cacheHit: false,
+        });
+        setReceiptHistory(getReceiptHistory());
+        setScannedItems(mapReceiptResultToItems(sample.result));
+        setShowReview(true);
+    }, [mapReceiptResultToItems]);
+
+    const updateReceiptPrivacy = useCallback((updates: Partial<ReceiptPrivacySettings>) => {
+        const next = { ...receiptPrivacy, ...updates };
+        setReceiptPrivacy(next);
+        setReceiptPrivacySettings(next);
+    }, [receiptPrivacy]);
+
+    const clearReceiptData = useCallback(async () => {
+        await clearReceiptPrivacyData();
+        setReceiptHistory([]);
+    }, []);
 
     // Capture photo from video stream
     const capturePhoto = useCallback(async () => {
@@ -207,7 +395,7 @@ export function Scan() {
             } else {
                 // SINGLE MODE - PROCESS IMMEDIATELY
                 // processImage handles compression internally, no need to double-compress
-                await processImage(file);
+                await processImage(file, 'camera');
             }
         }, 'image/jpeg', 0.8);
     }, [processImage, batchMode, scanQueue]);
@@ -219,7 +407,7 @@ export function Scan() {
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-        await processImage(file);
+        await processImage(file, 'gallery');
         if (galleryInputRef.current) galleryInputRef.current.value = '';
     };
 
@@ -257,7 +445,14 @@ export function Scan() {
         return (
             <ReviewItems
                 items={scannedItems}
+                receiptMeta={receiptMeta}
                 onConfirm={handleConfirmItems}
+                onScanAnother={() => {
+                    setShowReview(false);
+                    setScannedItems([]);
+                    setReceiptMeta(undefined);
+                    setScanMode('receipt');
+                }}
                 onClose={() => {
                     setShowReview(false);
                     setScannedItems([]);
@@ -349,6 +544,140 @@ export function Scan() {
                     </p>
                 </div>
             </div>
+
+            {scanMode === 'receipt' && (
+                <div className="px-4 mt-4 space-y-3">
+                    <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-2xl p-4 inventory-card">
+                        <div className="flex items-start justify-between gap-4 mb-3">
+                            <div>
+                                <p className="text-white text-sm font-bold">Receipt OCR setup</p>
+                                <p className="text-[var(--text-secondary)] text-xs mt-1">{receiptDiagnostics.message}</p>
+                            </div>
+                            <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${
+                                receiptDiagnostics.status === 'configured'
+                                    ? 'bg-emerald-500/20 text-emerald-300'
+                                    : 'bg-orange-500/20 text-orange-300'
+                            }`}>
+                                {receiptDiagnostics.status}
+                            </span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={runReceiptHealthCheck}
+                            disabled={isCheckingReceiptHealth || isScanning}
+                            className="mb-3 w-full py-2 rounded-xl bg-blue-500/15 border border-blue-400/30 text-blue-200 text-xs font-bold disabled:opacity-50"
+                        >
+                            {isCheckingReceiptHealth ? 'Checking Gemini...' : 'Check Gemini health'}
+                        </button>
+                        <div className="grid grid-cols-5 gap-1.5">
+                            {Object.entries(receiptSteps).map(([step, status]) => (
+                                <div key={step} className="rounded-xl bg-[var(--bg-tertiary)] px-2 py-2 text-center">
+                                    <p className={`text-[10px] font-bold uppercase ${
+                                        status === 'done' ? 'text-emerald-300' :
+                                        status === 'active' ? 'text-blue-300' :
+                                        status === 'error' ? 'text-red-300' :
+                                        'text-[var(--text-muted)]'
+                                    }`}>
+                                        {status}
+                                    </p>
+                                    <p className="text-[9px] text-[var(--text-secondary)] mt-1 capitalize">{step}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={loadSampleReceipt}
+                        disabled={isScanning}
+                        className="w-full py-3 rounded-2xl bg-emerald-500/15 border border-emerald-400/30 text-emerald-200 text-sm font-bold disabled:opacity-50"
+                    >
+                        Try sample receipt
+                    </button>
+                    {receiptQualityIssues.length > 0 && (
+                        <div className="bg-amber-500/15 border border-amber-400/30 rounded-2xl p-4 inventory-card">
+                            <p className="text-amber-200 text-sm font-bold">Image quality</p>
+                            <ul className="mt-2 space-y-1">
+                                {receiptQualityIssues.map(issue => (
+                                    <li key={issue.code} className="text-amber-100/80 text-xs">{issue.message}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                    <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-2xl p-4 inventory-card">
+                        <div className="flex items-center justify-between gap-3">
+                            <div>
+                                <p className="text-white text-sm font-bold">Receipt privacy</p>
+                                <p className="text-[var(--text-secondary)] text-xs mt-1">History: {receiptHistory.length} saved</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={clearReceiptData}
+                                className="px-3 py-1.5 rounded-lg bg-red-500/15 text-red-200 text-xs font-bold"
+                            >
+                                Clear
+                            </button>
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                            <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                                <input
+                                    type="checkbox"
+                                    checked={receiptPrivacy.saveHistory}
+                                    onChange={(e) => updateReceiptPrivacy({ saveHistory: e.target.checked })}
+                                />
+                                Save history
+                            </label>
+                            <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                                <input
+                                    type="checkbox"
+                                    checked={receiptPrivacy.savePreviews}
+                                    onChange={(e) => updateReceiptPrivacy({ savePreviews: e.target.checked })}
+                                />
+                                Save previews
+                            </label>
+                        </div>
+                        {receiptHistory.length > 0 && (
+                            <div className="mt-3 space-y-2">
+                                {receiptHistory.slice(0, 3).map(entry => (
+                                    <div key={entry.id} className="rounded-xl bg-[var(--bg-tertiary)] p-3">
+                                        <p className="text-white text-xs font-bold">{entry.storeName || 'Receipt scan'}</p>
+                                        <p className="text-[var(--text-muted)] text-[10px]">
+                                            {entry.itemCount} items · {entry.status} · {entry.cacheHit ? 'cache hit' : 'fresh OCR'}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    {queuedReceipts.length > 0 && (
+                        <div className="bg-[var(--bg-secondary)] border border-orange-400/30 rounded-2xl p-4 inventory-card">
+                            <div className="flex items-center justify-between gap-3 mb-3">
+                                <div>
+                                    <p className="text-white text-sm font-bold">Offline receipt queue</p>
+                                    <p className="text-[var(--text-secondary)] text-xs mt-1">{queuedReceipts.length} receipt{queuedReceipts.length !== 1 ? 's' : ''} waiting to retry</p>
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                {queuedReceipts.slice(0, 3).map(scan => (
+                                    <div key={scan.id} className="flex items-center justify-between gap-3 rounded-xl bg-[var(--bg-tertiary)] p-3">
+                                        <div className="min-w-0">
+                                            <p className="truncate text-white text-xs font-bold">{scan.name}</p>
+                                            <p className="truncate text-[var(--text-muted)] text-[10px]">{scan.reason}</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => retryQueuedReceipt(scan)}
+                                            disabled={isScanning}
+                                            className="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-200 text-xs font-bold disabled:opacity-50"
+                                        >
+                                            Retry
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Camera Error */}
             {cameraError && (
@@ -515,7 +844,7 @@ export function Scan() {
             )}
 
             {/* Bottom Controls */}
-            <div className="pb-8 px-6">
+            <div className="pb-32 px-6">
                 <div className="flex items-center justify-around">
                     {/* Gallery */}
                     <button
@@ -550,7 +879,7 @@ export function Scan() {
 
                     {/* Batch Mode / Close Camera */}
                     <button
-                        onClick={cameraActive ? stopCamera : () => setBatchMode(!batchMode)}
+                        onClick={cameraActive ? stopCamera : toggleBatchMode}
                         disabled={isScanning}
                         className="flex flex-col items-center gap-2 disabled:opacity-50"
                     >

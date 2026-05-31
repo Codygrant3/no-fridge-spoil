@@ -74,7 +74,7 @@ export interface DbBarcodeCache {
 // V5: AI Response Cache for offline-first AI
 export interface DbAICacheEntry {
     cacheKey: string;
-    serviceType: 'vision' | 'recipe' | 'factCheck';
+    serviceType: 'vision' | 'receipt' | 'recipe' | 'factCheck';
     response: string; // JSON-stringified response
     cachedAt: string;
     expiresAt: string;
@@ -190,7 +190,7 @@ class FoodTrackerDB extends Dexie {
             shoppingList: 'id, name, addedAt, isChecked',
             customTags: 'id, name',
             barcodeCache: 'barcode, cachedAt',
-        }).upgrade(async _tx => {
+        }).upgrade(async () => {
             console.log('Upgrading database to version 4 (opened date tracking)...');
             // No data migration needed - openedDate is optional
             console.log('Database upgraded to version 4!');
@@ -206,7 +206,7 @@ class FoodTrackerDB extends Dexie {
             barcodeCache: 'barcode, cachedAt',
             aiCache: 'cacheKey, serviceType, expiresAt',
             notificationLog: 'id, itemId, sentAt',
-        }).upgrade(async _tx => {
+        }).upgrade(async () => {
             console.log('Upgrading database to version 5 (AI cache + notifications)...');
             console.log('Database upgraded to version 5!');
         });
@@ -222,7 +222,7 @@ class FoodTrackerDB extends Dexie {
             aiCache: 'cacheKey, serviceType, expiresAt',
             notificationLog: 'id, itemId, sentAt',
             mealPlans: 'id, weekStartDate',
-        }).upgrade(async _tx => {
+        }).upgrade(async () => {
             console.log('Upgrading database to version 6 (meal planning)...');
             console.log('Database upgraded to version 6!');
         });
@@ -239,7 +239,7 @@ class FoodTrackerDB extends Dexie {
             notificationLog: 'id, itemId, sentAt',
             mealPlans: 'id, weekStartDate',
             profiles: 'id, name, createdAt',
-        }).upgrade(async _tx => {
+        }).upgrade(async () => {
             console.log('Upgrading database to version 7 (multi-user profiles)...');
             // No data migration needed - profileId is optional (undefined = Household)
             console.log('Database upgraded to version 7!');
@@ -298,13 +298,6 @@ export async function initializeDatabase(): Promise<void> {
     // Migrate from localStorage if data exists
     await migrateFromLocalStorage();
 
-    // Clean up expired AI cache entries
-    try {
-        const { cleanupExpiredCache } = await import('../services/aiCacheService');
-        await cleanupExpiredCache();
-    } catch (error) {
-        console.warn('AI Cache cleanup skipped:', error);
-    }
 }
 
 // Validate localStorage item data before migration

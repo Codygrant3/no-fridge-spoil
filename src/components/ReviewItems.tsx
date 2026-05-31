@@ -14,6 +14,9 @@ export interface ScannedItem {
     expirationDate: string;
     quantity: number;
     imageUrl?: string;
+    sourceImageUrl?: string;
+    sourceLine?: string;
+    sourceRegion?: string;
     // Smart defaults metadata
     autoFillConfidence?: 'high' | 'medium' | 'low';
     suggestedStorage?: StorageLocation;
@@ -24,7 +27,17 @@ export interface ScannedItem {
 interface ReviewItemsProps {
     items: ScannedItem[];
     onConfirm: (items: ScannedItem[]) => void;
+    onScanAnother?: () => void;
     onClose: () => void;
+    receiptMeta?: {
+        storeName?: string;
+        date?: string;
+        skippedItems?: string[];
+        source?: 'camera' | 'gallery' | 'sample';
+        previewUrl?: string;
+        cacheHit?: boolean;
+        estimatedCostCents?: number;
+    };
 }
 
 // Emoji icons for categories
@@ -63,12 +76,30 @@ function applySmartDefaults(items: ScannedItem[]): ScannedItem[] {
     });
 }
 
-export function ReviewItems({ items: initialItems, onConfirm, onClose }: ReviewItemsProps) {
-    const { addItem } = useInventory();
+export function ReviewItems({ items: initialItems, onConfirm, onScanAnother, onClose, receiptMeta }: ReviewItemsProps) {
+    const { addItem, updateItem: updateInventoryItem, items: inventoryItems } = useInventory();
     const [items, setItems] = useState<ScannedItem[]>(() => applySmartDefaults(initialItems));
+    const [bulkExpirationDate, setBulkExpirationDate] = useState('');
+    const [bulkCategory, setBulkCategory] = useState('Produce');
+    const [mergeMode, setMergeMode] = useState<'quantity' | 'expiration' | 'separate'>('quantity');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [feedback, setFeedback] = useState<{ type: 'success' | 'warning' | 'error'; message: string } | null>(null);
     const autoFilledCount = items.filter(i => i.wasAutoFilled).length;
+    const duplicateNames = items
+        .filter(item => inventoryItems.some(existing =>
+            existing.name.trim().toLowerCase() === item.name.trim().toLowerCase()
+        ))
+        .map(item => item.name);
+    const sortedItems = [...items].sort((a, b) => {
+        const rank = { Low: 0, Medium: 1, High: 2 };
+        return rank[a.confidence] - rank[b.confidence];
+    });
+    const groupedItems = sortedItems.reduce<Record<string, ScannedItem[]>>((groups, item) => {
+        const category = item.category || 'Grocery';
+        groups[category] = groups[category] || [];
+        groups[category].push(item);
+        return groups;
+    }, {});
 
     const updateItem = (id: string, updates: Partial<ScannedItem>) => {
         setItems(prev => prev.map(item =>
@@ -82,6 +113,44 @@ export function ReviewItems({ items: initialItems, onConfirm, onClose }: ReviewI
 
     const clearAll = () => {
         setItems([]);
+    };
+
+    const applyBulkExpirationDate = () => {
+        if (!bulkExpirationDate) return;
+        setItems(prev => prev.map(item => ({ ...item, expirationDate: bulkExpirationDate })));
+    };
+
+    const applyBulkCategory = () => {
+        setItems(prev => prev.map(item => ({ ...item, category: bulkCategory })));
+    };
+
+    const removeLowConfidenceItems = () => {
+        setItems(prev => prev.filter(item => item.confidence !== 'Low'));
+    };
+
+    const mergeDuplicates = async () => {
+        if (mergeMode === 'separate') {
+            setFeedback({ type: 'warning', message: 'Duplicates kept as separate scanned items.' });
+            return;
+        }
+        const duplicateItems = items.filter(item => duplicateNames.includes(item.name));
+        for (const item of duplicateItems) {
+            const existing = inventoryItems.find(inventoryItem =>
+                inventoryItem.name.trim().toLowerCase() === item.name.trim().toLowerCase()
+            );
+            if (existing) {
+                await updateInventoryItem(existing.id, mergeMode === 'expiration'
+                    ? { expirationDate: item.expirationDate || existing.expirationDate }
+                    : { quantity: existing.quantity + item.quantity });
+            }
+        }
+        setItems(prev => prev.filter(item => !duplicateNames.includes(item.name)));
+        setFeedback({
+            type: 'success',
+            message: mergeMode === 'expiration'
+                ? `Updated expiration dates for ${duplicateItems.length} duplicate item${duplicateItems.length !== 1 ? 's' : ''}.`
+                : `Merged ${duplicateItems.length} duplicate item${duplicateItems.length !== 1 ? 's' : ''} into inventory.`,
+        });
     };
 
     const addManualItem = () => {
@@ -179,6 +248,37 @@ export function ReviewItems({ items: initialItems, onConfirm, onClose }: ReviewI
                 <p className="text-[var(--text-secondary)] text-sm font-medium mt-1">Review details before adding to fridge</p>
             </div>
 
+            {receiptMeta && (
+                <div className="px-4 pb-4">
+                    <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-2xl p-4 inventory-card">
+                        <div className="flex items-center justify-between gap-3">
+                            <div>
+                                <p className="text-white text-sm font-bold">{receiptMeta.storeName || 'Receipt scan'}</p>
+                                <p className="text-[var(--text-secondary)] text-xs mt-1">
+                                    {receiptMeta.date || 'No receipt date detected'} · {receiptMeta.source === 'sample' ? 'Sample receipt' : 'OCR receipt'}
+                                </p>
+                                <p className="text-[var(--text-muted)] text-[10px] mt-1">
+                                    {receiptMeta.cacheHit ? 'Cache hit' : 'Fresh OCR'} · Est. OCR cost {receiptMeta.estimatedCostCents ?? 0}c
+                                </p>
+                            </div>
+                            <span className="text-[var(--accent-color)] text-xs font-bold uppercase tracking-wide">
+                                {items.length} food items
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {receiptMeta?.previewUrl && (
+                <div className="px-4 pb-4">
+                    <img
+                        src={receiptMeta.previewUrl}
+                        alt="Receipt preview"
+                        className="max-h-52 w-full rounded-2xl object-cover border border-[var(--border-color)] inventory-card"
+                    />
+                </div>
+            )}
+
             {/* Smart Defaults Banner */}
             {autoFilledCount > 0 && (
                 <div className="px-4 pb-4">
@@ -198,6 +298,44 @@ export function ReviewItems({ items: initialItems, onConfirm, onClose }: ReviewI
                         <Info className="w-5 h-5 text-[var(--warning-color)] shrink-0 mt-0.5" />
                         <p className="text-[var(--warning-color)] text-sm font-medium">
                             {itemsWithoutDate} item{itemsWithoutDate !== 1 ? 's' : ''} missing expiration date{itemsWithoutDate !== 1 ? 's' : ''} and will be skipped.
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            {duplicateNames.length > 0 && (
+                <div className="px-4 pb-4">
+                    <div className="bg-blue-500/15 border border-blue-500/40 rounded-xl p-4 flex items-start gap-3 inventory-card">
+                        <Info className="w-5 h-5 text-blue-300 shrink-0 mt-0.5" />
+                        <p className="text-blue-200 text-sm font-medium">
+                            Possible duplicates already in inventory: {duplicateNames.join(', ')}.
+                        </p>
+                        <select
+                            value={mergeMode}
+                            onChange={(e) => setMergeMode(e.target.value as typeof mergeMode)}
+                            className="shrink-0 rounded-lg bg-blue-950/60 text-blue-100 text-xs px-2 py-1"
+                        >
+                            <option value="quantity">Merge quantity</option>
+                            <option value="expiration">Replace date</option>
+                            <option value="separate">Keep separate</option>
+                        </select>
+                        <button
+                            type="button"
+                            onClick={mergeDuplicates}
+                            className="ml-auto shrink-0 px-3 py-1.5 rounded-lg bg-blue-400/20 text-blue-100 text-xs font-bold"
+                        >
+                            Merge
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {receiptMeta?.skippedItems && receiptMeta.skippedItems.length > 0 && (
+                <div className="px-4 pb-4">
+                    <div className="bg-slate-500/15 border border-slate-400/30 rounded-xl p-4 flex items-start gap-3 inventory-card">
+                        <Info className="w-5 h-5 text-slate-300 shrink-0 mt-0.5" />
+                        <p className="text-slate-200 text-sm font-medium">
+                            Non-food items skipped: {receiptMeta.skippedItems.join(', ')}.
                         </p>
                     </div>
                 </div>
@@ -228,14 +366,51 @@ export function ReviewItems({ items: initialItems, onConfirm, onClose }: ReviewI
             )}
 
             {/* Items List */}
-            <div className="flex-1 overflow-y-auto px-4 space-y-4 pb-4">
-                {items.map((item) => (
-                    <div
-                        key={item.id}
-                        className={`bg-[var(--bg-secondary)] rounded-3xl p-5 border inventory-card ${
+            <div className="flex-1 overflow-y-auto px-4 space-y-5 pb-4">
+                <div className="space-y-3 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-color)] p-4 inventory-card">
+                    <p className="text-white text-sm font-bold">Bulk actions</p>
+                    <div className="grid grid-cols-[1fr_auto] gap-2">
+                        <input
+                            type="date"
+                            value={bulkExpirationDate}
+                            onChange={(e) => setBulkExpirationDate(e.target.value)}
+                            className="px-3 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-white text-sm"
+                        />
+                        <button type="button" onClick={applyBulkExpirationDate} className="px-3 py-2 rounded-xl bg-emerald-500/20 text-emerald-200 text-xs font-bold">
+                            Set dates
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-[1fr_auto] gap-2">
+                        <select
+                            value={bulkCategory}
+                            onChange={(e) => setBulkCategory(e.target.value)}
+                            className="px-3 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-white text-sm"
+                        >
+                            {['Produce', 'Dairy', 'Meat', 'Pantry', 'Frozen', 'Beverages', 'Grocery'].map(option => (
+                                <option key={option} value={option}>{option}</option>
+                            ))}
+                        </select>
+                        <button type="button" onClick={applyBulkCategory} className="px-3 py-2 rounded-xl bg-blue-500/20 text-blue-200 text-xs font-bold">
+                            Set category
+                        </button>
+                    </div>
+                    <button type="button" onClick={removeLowConfidenceItems} className="w-full px-3 py-2 rounded-xl bg-orange-500/20 text-orange-200 text-xs font-bold">
+                        Remove low-confidence items
+                    </button>
+                </div>
+                {Object.entries(groupedItems).map(([category, categoryItems]) => (
+                    <section key={category} className="space-y-3">
+                        <div className="flex items-center justify-between px-1">
+                            <h3 className="text-white text-sm font-bold uppercase tracking-wide">{category}</h3>
+                            <span className="text-[var(--text-muted)] text-xs">{categoryItems.length} item{categoryItems.length !== 1 ? 's' : ''}</span>
+                        </div>
+                        {categoryItems.map((item) => (
+                            <div
+                                key={item.id}
+                                className={`bg-[var(--bg-secondary)] rounded-3xl p-5 border inventory-card ${
                             !item.expirationDate ? 'border-orange-500/50 glow-red' : 'border-[var(--border-color)]'
                         }`}
-                    >
+                            >
                         {/* Item Header */}
                         <div className="flex items-start gap-4 mb-4">
                             {/* Image/Emoji */}
@@ -252,17 +427,16 @@ export function ReviewItems({ items: initialItems, onConfirm, onClose }: ReviewI
                                     className="text-white text-xl font-bold bg-transparent w-full outline-none"
                                 />
                                 <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                    {item.confidence === 'High' && (
-                                        <span className="text-[var(--accent-color)] text-xs flex items-center gap-1 font-semibold">
-                                            <Check className="w-3 h-3" />
-                                            High confidence scan
-                                        </span>
-                                    )}
-                                    {item.confidence === 'Low' && (
-                                        <span className="text-[var(--warning-color)] text-xs font-semibold">{item.category}</span>
-                                    )}
-                                    {item.confidence === 'Medium' && (
-                                        <span className="text-[var(--text-secondary)] text-xs font-semibold">{item.category}</span>
+                                    <span className={`text-xs flex items-center gap-1 font-semibold ${
+                                        item.confidence === 'High' ? 'text-[var(--accent-color)]' :
+                                        item.confidence === 'Medium' ? 'text-blue-300' :
+                                        'text-[var(--warning-color)]'
+                                    }`}>
+                                        {item.confidence === 'High' && <Check className="w-3 h-3" />}
+                                        {item.confidence} confidence
+                                    </span>
+                                    {duplicateNames.includes(item.name) && (
+                                        <span className="text-blue-300 text-xs font-semibold">Possible duplicate</span>
                                     )}
                                     {item.wasAutoFilled && (
                                         <span className={`text-xs flex items-center gap-1 font-semibold ${
@@ -274,6 +448,12 @@ export function ReviewItems({ items: initialItems, onConfirm, onClose }: ReviewI
                                             Smart estimate
                                         </span>
                                     )}
+                                    {item.sourceLine && (
+                                        <span className="text-[var(--text-muted)] text-xs font-semibold">Line: {item.sourceLine}</span>
+                                    )}
+                                    {item.sourceRegion && (
+                                        <span className="text-[var(--text-muted)] text-xs font-semibold">Region: {item.sourceRegion}</span>
+                                    )}
                                 </div>
                             </div>
 
@@ -284,6 +464,35 @@ export function ReviewItems({ items: initialItems, onConfirm, onClose }: ReviewI
                             >
                                 <X className="w-5 h-5" />
                             </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 mb-4">
+                            <div>
+                                <label className="text-[var(--text-secondary)] text-xs uppercase tracking-wide block mb-2 font-bold">
+                                    Brand
+                                </label>
+                                <input
+                                    type="text"
+                                    value={item.brand || ''}
+                                    onChange={(e) => updateItem(item.id, { brand: e.target.value })}
+                                    placeholder="Optional"
+                                    className="w-full px-4 py-3 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-white outline-none font-medium"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[var(--text-secondary)] text-xs uppercase tracking-wide block mb-2 font-bold">
+                                    Category
+                                </label>
+                                <select
+                                    value={item.category}
+                                    onChange={(e) => updateItem(item.id, { category: e.target.value })}
+                                    className="w-full px-4 py-3 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-white outline-none font-medium"
+                                >
+                                    {['Produce', 'Dairy', 'Meat', 'Pantry', 'Frozen', 'Beverages', 'Grocery'].map(option => (
+                                        <option key={option} value={option}>{option}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
 
                         {/* Expiration & Quantity Row */}
@@ -325,9 +534,13 @@ export function ReviewItems({ items: initialItems, onConfirm, onClose }: ReviewI
                                     >
                                         <Minus className="w-5 h-5" />
                                     </button>
-                                    <span className="w-10 text-center text-white font-bold text-lg">
-                                        {item.quantity}
-                                    </span>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        value={item.quantity}
+                                        onChange={(e) => updateItem(item.id, { quantity: Math.max(1, Number(e.target.value) || 1) })}
+                                        className="w-14 text-center text-white font-bold text-lg bg-transparent outline-none"
+                                    />
                                     <button
                                         onClick={() => updateItem(item.id, { quantity: item.quantity + 1 })}
                                         className="w-12 h-12 bg-[var(--accent-color)] rounded-xl flex items-center justify-center text-white action-button"
@@ -337,7 +550,9 @@ export function ReviewItems({ items: initialItems, onConfirm, onClose }: ReviewI
                                 </div>
                             </div>
                         </div>
-                    </div>
+                            </div>
+                        ))}
+                    </section>
                 ))}
 
                 {/* Add Manual Item */}
@@ -352,6 +567,15 @@ export function ReviewItems({ items: initialItems, onConfirm, onClose }: ReviewI
 
             {/* Confirm Button */}
             <div className="p-4 pb-8">
+                {onScanAnother && (
+                    <button
+                        type="button"
+                        onClick={onScanAnother}
+                        className="mb-3 w-full py-4 bg-[var(--bg-secondary)] text-white font-bold rounded-3xl border border-[var(--border-color)] inventory-card"
+                    >
+                        Scan another receipt
+                    </button>
+                )}
                 <button
                     onClick={handleConfirm}
                     disabled={items.length === 0 || isSubmitting || items.every(i => !i.expirationDate)}

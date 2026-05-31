@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 /**
  * SplashScreen - Refined animated intro
@@ -18,26 +18,46 @@ type SplashScreenProps = {
 // Split text into individual characters for animation
 const APP_NAME = "No Fridge Spoil";
 const LETTERS = APP_NAME.split('');
+const FALLBACK_PARTICLES = Array.from({ length: 20 }, (_, i) => {
+    const seed = (i + 1) * 9973;
+    const random = (offset: number) => {
+        const value = Math.sin(seed + offset) * 10000;
+        return value - Math.floor(value);
+    };
+
+    return {
+        delay: i * 0.3,
+        xStart: `${random(1) * 100}%`,
+        xEnd: `${random(2) * 100}%`,
+        size: `${4 + random(3) * 8}px`,
+        duration: `${3 + random(4) * 4}s`,
+    };
+});
 
 export function SplashScreen({ onComplete }: SplashScreenProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
+    const completedRef = useRef(false);
     const [videoError, setVideoError] = useState(false);
     const [phase, setPhase] = useState(0);
     const [lettersVisible, setLettersVisible] = useState<boolean[]>(new Array(LETTERS.length).fill(false));
 
+    const completeSplash = useCallback(() => {
+        if (completedRef.current) return;
+        completedRef.current = true;
+        onComplete();
+    }, [onComplete]);
+
     useEffect(() => {
         const video = videoRef.current;
 
-        // Safety timeout: if splash hasn't completed in 6 seconds, force it
+        // Emergency fallback if browser media events or timers stall.
         const safetyTimeout = setTimeout(() => {
-            console.warn('Splash screen safety timeout — forcing completion');
-            onComplete();
-        }, 6000);
+            completeSplash();
+        }, 8000);
 
         if (video && !videoError) {
             const handleEnded = () => {
-                clearTimeout(safetyTimeout);
-                onComplete();
+                completeSplash();
             };
 
             const handleError = () => {
@@ -63,7 +83,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
         }
 
         return () => clearTimeout(safetyTimeout);
-    }, [onComplete, videoError]);
+    }, [completeSplash, videoError]);
 
     // Animated letter sequence - runs for BOTH video and fallback modes
     useEffect(() => {
@@ -73,41 +93,37 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
         // Phase 2: Start letter animations with wave effect
         // Delay slightly longer when video is playing to sync with video animation
         const letterDelay = videoError ? 600 : 800;
+        const letterTimers: ReturnType<typeof setTimeout>[] = [];
         const phase2 = setTimeout(() => {
             setPhase(2);
             // Stagger each letter's appearance
             LETTERS.forEach((_, i) => {
-                setTimeout(() => {
+                const letterTimer = setTimeout(() => {
                     setLettersVisible(prev => {
                         const next = [...prev];
                         next[i] = true;
                         return next;
                     });
                 }, i * 80); // 80ms stagger between letters
+                letterTimers.push(letterTimer);
             });
         }, letterDelay);
 
         // Phase 3: Tagline
         const phase3 = setTimeout(() => setPhase(3), videoError ? 1800 : 2200);
 
-        // Only handle fade out for CSS fallback mode
-        // Video mode handles completion via video 'ended' event
-        let phase4: NodeJS.Timeout | undefined;
-        let complete: NodeJS.Timeout | undefined;
-
-        if (videoError) {
-            phase4 = setTimeout(() => setPhase(4), 2800);
-            complete = setTimeout(() => onComplete(), 3500);
-        }
+        const phase4 = setTimeout(() => setPhase(4), videoError ? 2800 : 3600);
+        const complete = setTimeout(() => completeSplash(), videoError ? 3500 : 4300);
 
         return () => {
             clearTimeout(phase1);
             clearTimeout(phase2);
             clearTimeout(phase3);
-            if (phase4) clearTimeout(phase4);
-            if (complete) clearTimeout(complete);
+            clearTimeout(phase4);
+            clearTimeout(complete);
+            letterTimers.forEach(timer => clearTimeout(timer));
         };
-    }, [onComplete, videoError]);
+    }, [completeSplash, videoError]);
 
     // Video-based splash screen with 3D text overlay
     if (!videoError) {
@@ -321,16 +337,16 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
 
             {/* Floating particles */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                {[...Array(20)].map((_, i) => (
+                {FALLBACK_PARTICLES.map((particle, i) => (
                     <div
                         key={i}
                         className="particle"
                         style={{
-                            '--delay': `${i * 0.3}s`,
-                            '--x-start': `${Math.random() * 100}%`,
-                            '--x-end': `${Math.random() * 100}%`,
-                            '--size': `${4 + Math.random() * 8}px`,
-                            '--duration': `${3 + Math.random() * 4}s`,
+                            '--delay': `${particle.delay}s`,
+                            '--x-start': particle.xStart,
+                            '--x-end': particle.xEnd,
+                            '--size': particle.size,
+                            '--duration': particle.duration,
                         } as React.CSSProperties}
                     />
                 ))}

@@ -8,10 +8,11 @@
 import { db } from '../db/database';
 import type { DbAICacheEntry } from '../db/database';
 
-export type AICacheServiceType = 'vision' | 'recipe' | 'factCheck';
+export type AICacheServiceType = 'vision' | 'receipt' | 'recipe' | 'factCheck';
 
 // Default TTL in hours per service type
 const DEFAULT_TTL: Record<AICacheServiceType, number> = {
+    receipt: 168,
     vision: 24,       // 1 day — same image rarely changes
     recipe: 72,       // 3 days — recipes are creative, but duplicates are fine short-term
     factCheck: 168,   // 1 week — recall data doesn't change rapidly
@@ -44,6 +45,19 @@ export function makeImageCacheKey(file: File): string {
     return makeCacheKey(`vision:${file.name}:${file.size}:${file.lastModified}`);
 }
 
+export async function makeReceiptImageCacheKey(file: File): Promise<string> {
+    try {
+        const buffer = await file.arrayBuffer();
+        const digest = await crypto.subtle.digest('SHA-256', buffer);
+        const hash = Array.from(new Uint8Array(digest))
+            .map(byte => byte.toString(16).padStart(2, '0'))
+            .join('');
+        return makeCacheKey(`receipt:${hash}:${file.type}`);
+    } catch {
+        return makeCacheKey(`receipt:${file.name}:${file.size}:${file.lastModified}:${file.type}`);
+    }
+}
+
 /**
  * Generate a cache key for recipe generation (sorted item names).
  */
@@ -64,11 +78,12 @@ export function makeFactCheckCacheKey(productName: string, brand?: string): stri
  */
 export async function getCachedResponse<T>(
     cacheKey: string,
-    _serviceType?: AICacheServiceType,
+    serviceType?: AICacheServiceType,
 ): Promise<T | null> {
     try {
         const entry = await db.aiCache.get(cacheKey);
         if (!entry) return null;
+        if (serviceType && entry.serviceType !== serviceType) return null;
 
         // Check expiration
         if (new Date(entry.expiresAt) < new Date()) {
@@ -156,6 +171,7 @@ export async function getCacheStats(): Promise<{
 
         const byService: Record<AICacheServiceType, { count: number; hits: number; sizeBytes: number }> = {
             vision: { count: 0, hits: 0, sizeBytes: 0 },
+            receipt: { count: 0, hits: 0, sizeBytes: 0 },
             recipe: { count: 0, hits: 0, sizeBytes: 0 },
             factCheck: { count: 0, hits: 0, sizeBytes: 0 },
         };
@@ -187,6 +203,7 @@ export async function getCacheStats(): Promise<{
             totalHits: 0,
             byService: {
                 vision: { count: 0, hits: 0, sizeBytes: 0 },
+                receipt: { count: 0, hits: 0, sizeBytes: 0 },
                 recipe: { count: 0, hits: 0, sizeBytes: 0 },
                 factCheck: { count: 0, hits: 0, sizeBytes: 0 },
             },
@@ -200,4 +217,9 @@ export async function getCacheStats(): Promise<{
 export async function clearAllCache(): Promise<void> {
     await db.aiCache.clear();
     console.log('AI Cache: all entries cleared');
+}
+
+export async function clearCacheByService(serviceType: AICacheServiceType): Promise<void> {
+    const entries = (await db.aiCache.toArray()).filter(entry => entry.serviceType === serviceType);
+    await db.aiCache.bulkDelete(entries.map(entry => entry.cacheKey));
 }

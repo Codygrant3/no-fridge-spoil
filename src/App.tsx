@@ -1,28 +1,46 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { Suspense, lazy, useState, useCallback, useMemo, useEffect } from 'react';
 import { BottomNav } from './components/BottomNav';
 import type { TabType } from './components/BottomNav';
-import { Inventory } from './pages/Inventory';
-import { Scan } from './pages/Scan';
-import { Recipes } from './pages/Recipes';
-import { Stats } from './pages/Stats';
-import { ShoppingList } from './pages/ShoppingList';
-import { Alerts } from './pages/Alerts';
-import { MealPlanner } from './pages/MealPlanner';
 import { InventoryProvider, useInventory } from './context/InventoryContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ProfileProvider } from './context/ProfileContext';
 import { SplashScreen } from './components/SplashScreen';
 import { AnimatedBackground } from './components/AnimatedBackground';
 import { startScheduler, stopScheduler } from './services/notificationScheduler';
+import { cleanupExpiredCache } from './services/aiCacheService';
+
+const Inventory = lazy(() => import('./pages/Inventory').then(module => ({ default: module.Inventory })));
+const Scan = lazy(() => import('./pages/Scan').then(module => ({ default: module.Scan })));
+const Recipes = lazy(() => import('./pages/Recipes').then(module => ({ default: module.Recipes })));
+const Stats = lazy(() => import('./pages/Stats').then(module => ({ default: module.Stats })));
+const ShoppingList = lazy(() => import('./pages/ShoppingList').then(module => ({ default: module.ShoppingList })));
+const Alerts = lazy(() => import('./pages/Alerts').then(module => ({ default: module.Alerts })));
+const MealPlanner = lazy(() => import('./pages/MealPlanner').then(module => ({ default: module.MealPlanner })));
+
+function PageLoadingFallback() {
+  return (
+    <div className="min-h-full flex items-center justify-center px-6 py-12">
+      <div className="text-center">
+        <div className="mx-auto mb-4 h-12 w-12 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)] flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.18)]">
+          <div className="h-5 w-5 rounded-full border-2 border-[var(--accent-color)] border-t-transparent animate-spin" />
+        </div>
+        <p className="text-white text-sm font-bold">Loading market view</p>
+        <p className="text-[var(--text-secondary)] text-xs mt-1">Preparing your freshness dashboard.</p>
+      </div>
+    </div>
+  );
+}
 
 function AppContent() {
   const [currentTab, setCurrentTab] = useState<TabType>('inventory');
   const [showSplash, setShowSplash] = useState(true);
+  const [now] = useState(() => Date.now());
   const { items } = useInventory();
 
   // Start notification scheduler on mount
   useEffect(() => {
     startScheduler();
+    cleanupExpiredCache().catch(error => console.warn('AI Cache cleanup skipped:', error));
     return () => stopScheduler();
   }, []);
 
@@ -47,13 +65,12 @@ function AppContent() {
 
   // Calculate alert count (expiring within 3 days)
   const alertCount = useMemo(() => {
-    const now = Date.now();
     return items.filter(item => {
       const diff = new Date(item.expirationDate).getTime() - now;
       const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
       return days >= 0 && days <= 3;
     }).length;
-  }, [items]);
+  }, [items, now]);
 
   const renderPage = () => {
     switch (currentTab) {
@@ -79,7 +96,9 @@ function AppContent() {
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto relative z-10">
-          {renderPage()}
+          <Suspense fallback={<PageLoadingFallback />}>
+            {renderPage()}
+          </Suspense>
         </main>
 
         <BottomNav
