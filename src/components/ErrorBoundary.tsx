@@ -1,5 +1,6 @@
 import { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
+import { ArrowClockwise, House } from '@phosphor-icons/react';
 
 interface Props {
     children: ReactNode;
@@ -7,58 +8,65 @@ interface Props {
 
 interface State {
     hasError: boolean;
-    error: Error | null;
+    incidentId: string | null;
+}
+
+function createIncidentId(): string {
+    const suffix = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID().slice(0, 8)
+        : Date.now().toString(36);
+    return `NFS-${suffix.toUpperCase()}`;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
     public state: State = {
         hasError: false,
-        error: null
+        incidentId: null,
     };
 
-    public static getDerivedStateFromError(error: Error): State {
-        return { hasError: true, error };
+    public static getDerivedStateFromError(): State {
+        return { hasError: true, incidentId: createIncidentId() };
     }
 
     public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-        console.error('Uncaught error:', error, errorInfo);
+        if (import.meta.env.DEV) {
+            console.error('Uncaught application error:', error.message, errorInfo.componentStack);
+        }
     }
 
-    public render() {
-        if (this.state.hasError) {
-            return (
-                <div style={{ padding: '20px', color: 'red', fontFamily: 'system-ui, sans-serif' }}>
-                    <h1>Something went wrong.</h1>
-                    <p>Please take a screenshot of this for support:</p>
-                    <pre style={{
-                        backgroundColor: '#f1f1f1',
-                        padding: '10px',
-                        borderRadius: '4px',
-                        overflow: 'auto',
-                        fontSize: '12px'
-                    }}>
-                        {this.state.error?.toString()}
-                        <br />
-                        {this.state.error?.stack}
-                    </pre>
-                    <button
-                        onClick={() => window.location.reload()}
-                        style={{
-                            marginTop: '10px',
-                            padding: '10px 20px',
-                            backgroundColor: '#007AFF',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontSize: '16px'
-                        }}
-                    >
-                        Reload App
-                    </button>
-                </div>
-            );
-        }
+    private retry = () => {
+        this.setState({ hasError: false, incidentId: null });
+    };
 
-        return this.props.children;
+    private returnHome = () => {
+        window.location.hash = '#/';
+        window.location.reload();
+    };
+
+    public render() {
+        if (!this.state.hasError) return this.props.children;
+
+        return (
+            <main className="app-error-shell" role="alert" aria-labelledby="app-error-heading">
+                <section className="app-error-panel">
+                    <p className="editorial-kicker">No Fridge Spoil</p>
+                    <h1 id="app-error-heading">The kitchen view needs a reset</h1>
+                    <p>Your device data is still stored locally. Retry the view or return to the inventory screen.</p>
+                    <div className="app-error-actions">
+                        <button type="button" onClick={this.retry}>
+                            <ArrowClockwise size={18} />
+                            Retry view
+                        </button>
+                        <button type="button" onClick={this.returnHome}>
+                            <House size={18} />
+                            Return home
+                        </button>
+                    </div>
+                    {this.state.incidentId && (
+                        <small>Reference {this.state.incidentId}</small>
+                    )}
+                </section>
+            </main>
+        );
     }
 }

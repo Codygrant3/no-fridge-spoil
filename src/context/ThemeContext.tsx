@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { readLocalValue, writeLocalValue } from '../services/safeStorage';
 
 interface ThemeContextType {
     isDark: boolean;
@@ -9,7 +10,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const [isDark, setIsDark] = useState(() => {
-        const saved = localStorage.getItem('theme');
+        const saved = readLocalValue('theme');
         if (saved) return saved === 'dark';
         // Default to dark — the glass design is built for dark mode
         return true;
@@ -22,7 +23,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         } else {
             root.classList.remove('dark');
         }
-        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        writeLocalValue('theme', isDark ? 'dark' : 'light');
     }, [isDark]);
 
     const toggleTheme = () => setIsDark(prev => !prev);

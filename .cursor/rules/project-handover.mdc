@@ -1,0 +1,48 @@
+---
+description: No Fridge Spoil architecture, safety, and verification guardrails
+alwaysApply: true
+---
+
+# No Fridge Spoil Project Rule
+
+Read `docs/CURSOR_HANDOVER.md` before substantial work.
+
+## Non-negotiable context
+
+- This is a React 19 + TypeScript + Vite local-first PWA.
+- Dexie/IndexedDB is the local source of truth. Supabase is optional household sync.
+- The working tree is intentionally very dirty and contains required uncommitted production code.
+- Never reset, clean, restore, or delete untracked files to normalize Git state.
+- Preserve unrelated user changes.
+- Vercel is the only supported deployment target.
+- Gemini, Google GenAI, Google TTS, Netlify, and the Remotion intro are retired.
+
+## Security and data rules
+
+- Never place a secret in a `VITE_*` variable. Browser-prefixed values are public.
+- Keep Supabase secret keys, OCR provider keys, salts, and cron secrets server-side.
+- Preserve RLS and explicit household authorization.
+- Receipt uploads require consent, quota/budget reservation, private storage, and cleanup.
+- Preserve raw receipt evidence and require review for ambiguous shorthand.
+- Do not write directly from components to Supabase; use local mutations and cloud sync/outbox.
+- Use strict local-calendar handling for `YYYY-MM-DD` fields.
+
+## Change discipline
+
+- Follow existing TypeScript, React hooks, page, service, and CSS patterns.
+- Keep routes lazy and preserve hash/query behavior.
+- Use `localMutationFields()` for cloud-syncable IndexedDB mutations.
+- Add a Dexie version for local schema/index changes.
+- Add a new ordered migration for cloud schema changes; never rewrite applied migrations.
+- Keep service-worker registration in `src/main.tsx` only.
+- Treat `ReviewItems.tsx`, `Scan.tsx`, `Profile.tsx`, and `index.css` as high-risk hotspots.
+
+## Verification
+
+- During edits: run focused tests, `npm run typecheck`, and `npm run lint`.
+- Device release: `npm run verify:release`.
+- Auth/RLS/sync/receipt backend release: start local Supabase and run
+  `npm run verify:release:cloud`.
+- Production PWA behavior must pass `npm run test:e2e:pwa`.
+- Do not describe skipped or unavailable checks as passed.
+

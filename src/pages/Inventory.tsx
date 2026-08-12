@@ -1,185 +1,133 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { useInventory } from '../context/InventoryContext';
-import { Search, SlidersHorizontal, AlertTriangle, Check, Trash2, Calendar, ChevronRight, Clock, Sparkles } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+    ArrowRight,
+    CalendarBlank,
+    CaretRight,
+    Check,
+    MagnifyingGlass,
+    Package,
+    Scan,
+    ShoppingCartSimple,
+    SlidersHorizontal,
+    Snowflake,
+    Trash,
+} from '@phosphor-icons/react';
 import type { TabType } from '../components/BottomNav';
-import { getShelfLifeDescription } from '../services/shelfLifeService';
 import { EatThisTonightWidget } from '../components/EatThisTonightWidget';
-import type { Recipe } from '../services/recipeService';
 import { CookMode } from '../components/CookMode';
 import { ProfileSwitcher } from '../components/ProfileSwitcher';
+import { OnboardingCarousel } from '../components/OnboardingCarousel';
+import { useInventory } from '../context/InventoryContext';
+import type { Recipe } from '../services/recipeService';
+import { getShelfLifeDescription } from '../services/shelfLifeService';
+import { addInventoryItemToShoppingList } from '../services/shoppingActionService';
 
 interface InventoryProps {
     onNavigate?: (tab: TabType) => void;
 }
 
-// Calculate freshness percentage (100% = just added, 0% = expired)
-function calculateFreshness(addedAt: string, expirationDate: string): number {
-    const added = new Date(addedAt).getTime();
-    const expires = new Date(expirationDate).getTime();
-    const now = Date.now();
+type InventoryFilter = 'all' | 'attention' | 'fresh';
+type StatusTone = 'urgent' | 'warning' | 'fresh';
 
-    if (now >= expires) return 0;
-    if (now <= added) return 100;
+const foodImages: Array<{ terms: string[]; src: string }> = [
+    { terms: ['yogurt', 'yoghurt'], src: '/market/greek-yogurt.webp' },
+    { terms: ['spinach'], src: '/market/baby-spinach.webp' },
+    { terms: ['salmon'], src: '/market/salmon-fillet.webp' },
+];
 
-    const totalDuration = expires - added;
-    const elapsed = now - added;
-    return Math.round(100 - (elapsed / totalDuration) * 100);
+function getDaysUntil(dateString: string, now: number): { days: number; label: string } {
+    const difference = new Date(dateString).getTime() - now;
+    const days = Math.ceil(difference / 86_400_000);
+
+    if (days < 0) return { days, label: 'Expired' };
+    if (days === 0) return { days, label: 'Today' };
+    if (days === 1) return { days, label: '1 day' };
+    return { days, label: `${days} days` };
 }
 
-// Get freshness color class based on percentage
-function getFreshnessClass(percentage: number): string {
-    if (percentage <= 10) return 'freshness-critical';
-    if (percentage <= 30) return 'freshness-warning';
-    if (percentage <= 60) return 'freshness-good';
-    return 'freshness-fresh';
+function getStatusTone(days: number): StatusTone {
+    if (days <= 0) return 'urgent';
+    if (days <= 7) return 'warning';
+    return 'fresh';
 }
 
-// Get days until expiration
-function getDaysUntil(dateStr: string, currentTime: number): { text: string; days: number } {
-    const diff = new Date(dateStr).getTime() - currentTime;
-    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-    if (days < 0) return { text: 'Expired', days };
-    if (days === 0) return { text: 'Today', days: 0 };
-    if (days === 1) return { text: '1 day', days: 1 };
-    return { text: `${days} days`, days };
-}
-
-// Custom hook for debounced value
-function useDebouncedValue<T>(value: T, delay: number): T {
-    const [debouncedValue, setDebouncedValue] = useState(value);
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedValue(value);
-        }, delay);
-
-        return () => {
-            clearTimeout(timer);
-        };
-    }, [value, delay]);
-
-    return debouncedValue;
-}
-
-// Get current timestamp
-function getCurrentTime(): number {
-    return Date.now();
-}
-
-// Food emoji mapping
-const foodEmojis: Record<string, string> = {
-    milk: '🥛', yogurt: '🥛', cheese: '🧀', butter: '🧈', cream: '🥛',
-    egg: '🥚', eggs: '🥚',
-    bread: '🍞', toast: '🍞',
-    apple: '🍎', banana: '🍌', orange: '🍊', lemon: '🍋', grape: '🍇',
-    strawberry: '🍓', blueberry: '🫐', avocado: '🥑',
-    carrot: '🥕', broccoli: '🥦', lettuce: '🥬', spinach: '🥬', salad: '🥗',
-    tomato: '🍅', potato: '🥔', onion: '🧅', garlic: '🧄', corn: '🌽',
-    chicken: '🍗', beef: '🥩', meat: '🥩', fish: '🐟', salmon: '🐟', shrimp: '🦐',
-    default: '🍽️'
-};
-
-function getFoodEmoji(name: string): string {
-    const lower = name.toLowerCase();
-    for (const [key, emoji] of Object.entries(foodEmojis)) {
-        if (lower.includes(key)) return emoji;
-    }
-    return foodEmojis.default;
+function getFoodImage(name: string): string | undefined {
+    const normalizedName = name.toLowerCase();
+    return foodImages.find(({ terms }) => terms.some(term => normalizedName.includes(term)))?.src;
 }
 
 export function Inventory({ onNavigate }: InventoryProps) {
     const { items, removeItem, consumeItem, updateItem } = useInventory();
     const [search, setSearch] = useState('');
-    const [showFilters, setShowFilters] = useState(false);
+    const [showSearch, setShowSearch] = useState(false);
+    const [filter, setFilter] = useState<InventoryFilter>('all');
+    const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
     const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
-    const [onboardingStep, setOnboardingStep] = useState(0);
-    const startXRef = useRef(0);
-
-    const [currentTime, setCurrentTime] = useState(getCurrentTime);
+    const [currentTime, setCurrentTime] = useState(() => Date.now());
+    const [actionFeedback, setActionFeedback] = useState<string | null>(null);
+    const [visibleItemCount, setVisibleItemCount] = useState(24);
 
     useEffect(() => {
-        const interval = setInterval(() => {
-            setCurrentTime(getCurrentTime());
-        }, 60000);
-        return () => clearInterval(interval);
+        const interval = window.setInterval(() => setCurrentTime(Date.now()), 60_000);
+        return () => window.clearInterval(interval);
     }, []);
 
-    const debouncedSearch = useDebouncedValue(search, 300);
+    const sortedItems = useMemo(() => {
+        const query = search.trim().toLowerCase();
 
-    // Calculate stats
-    const stats = useMemo(() => {
-        const total = items.length;
-        const urgent = items.filter(i => i.status === 'expired' ||
-            (i.status === 'expiring_soon' && getDaysUntil(i.expirationDate, currentTime).days <= 1)).length;
-        const soon = items.filter(i => i.status === 'expiring_soon' && getDaysUntil(i.expirationDate, currentTime).days > 1).length;
-        const good = items.filter(i => i.status === 'good').length;
+        return [...items]
+            .filter(item => {
+                const { days } = getDaysUntil(item.expirationDate, currentTime);
+                const matchesQuery = !query || item.name.toLowerCase().includes(query) || item.brand?.toLowerCase().includes(query);
+                const matchesFilter = filter === 'all'
+                    || (filter === 'attention' && days <= 7)
+                    || (filter === 'fresh' && days > 7);
+                return matchesQuery && matchesFilter;
+            })
+            .sort((first, second) => new Date(first.expirationDate).getTime() - new Date(second.expirationDate).getTime());
+    }, [currentTime, filter, items, search]);
 
-        // Calculate overall freshness score
-        const totalFreshness = items.reduce((sum, item) =>
-            sum + calculateFreshness(item.addedAt, item.expirationDate), 0);
-        const freshnessScore = total > 0 ? Math.round(totalFreshness / total) : 100;
+    const criticalItems = useMemo(
+        () => items.filter(item => {
+            const days = getDaysUntil(item.expirationDate, currentTime).days;
+            return days >= 0 && days <= 1 && item.status !== 'expired';
+        }),
+        [currentTime, items],
+    );
+    const visibleItems = sortedItems.slice(0, visibleItemCount);
 
-        return { total, urgent, soon, good, freshnessScore };
-    }, [items, currentTime]);
-
-    // Filtered and categorized items
-    const categorizedItems = useMemo(() => {
-        let result = items;
-        if (debouncedSearch.trim()) {
-            const q = debouncedSearch.toLowerCase();
-            result = result.filter(item =>
-                item.name.toLowerCase().includes(q) ||
-                item.brand?.toLowerCase().includes(q)
-            );
-        }
-
-        // Sort by expiration date
-        result = [...result].sort((a, b) =>
-            new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime()
-        );
-
-        // Categorize by urgency
-        const critical = result.filter(i =>
-            i.status === 'expired' || getDaysUntil(i.expirationDate, currentTime).days <= 1);
-        const thisWeek = result.filter(i => {
-            const days = getDaysUntil(i.expirationDate, currentTime).days;
-            return days > 1 && days <= 7 && i.status !== 'expired';
-        });
-        const allGood = result.filter(i => {
-            const days = getDaysUntil(i.expirationDate, currentTime).days;
-            return days > 7;
-        });
-
-        return { critical, thisWeek, allGood };
-    }, [items, debouncedSearch, currentTime]);
-
-    // Touch handlers for future swipe-to-action feature
-    const handleTouchStart = (_id: string, e: React.TouchEvent) => {
-        startXRef.current = e.touches[0].clientX;
-    };
-
-    const handleTouchEnd = (_id: string, _e: React.TouchEvent) => {
-        // TODO: Implement swipe-to-reveal actions (delete, consume, etc.)
-    };
+    const actionQueue = useMemo(() => {
+        const ranked = items.map(item => ({ item, ...getDaysUntil(item.expirationDate, currentTime) }));
+        const useNext = ranked
+            .filter(entry => entry.days <= 1)
+            .map(entry => ({ ...entry, action: 'use' as const }));
+        const freezeToday = ranked
+            .filter(entry => entry.days >= 2 && entry.days <= 3 && entry.item.storageLocation === 'fridge')
+            .map(entry => ({ ...entry, action: 'freeze' as const }));
+        const buySoon = ranked
+            .filter(entry => entry.days > 3 && entry.item.quantity <= 1)
+            .map(entry => ({ ...entry, action: 'buy' as const }));
+        return [...useNext, ...freezeToday, ...buySoon].slice(0, 5);
+    }, [currentTime, items]);
 
     const markAsOpened = useCallback(async (id: string) => {
-        const today = new Date().toISOString().split('T')[0];
-        await updateItem(id, { openedDate: today });
+        await updateItem(id, { openedDate: new Date().toISOString().split('T')[0] });
     }, [updateItem]);
 
-    const handleCookNow = useCallback((recipe: Recipe) => {
-        setSelectedRecipe(recipe);
-    }, []);
+    const freezeItem = useCallback(async (id: string, name: string) => {
+        const frozenUntil = new Date();
+        frozenUntil.setDate(frozenUntil.getDate() + 30);
+        await updateItem(id, {
+            storageLocation: 'freezer',
+            expirationDate: frozenUntil.toISOString().split('T')[0],
+        });
+        setActionFeedback(`${name} moved to the freezer for 30 days.`);
+    }, [updateItem]);
 
-    // Auto-cycle onboarding
-    useEffect(() => {
-        if (items.length === 0) {
-            const interval = setInterval(() => {
-                setOnboardingStep((prev) => (prev + 1) % 3);
-            }, 4000);
-            return () => clearInterval(interval);
-        }
-    }, [items.length]);
+    const addToList = useCallback(async (item: (typeof items)[number]) => {
+        const result = await addInventoryItemToShoppingList(item);
+        setActionFeedback(result === 'added' ? `${item.name} added to your shopping list.` : `${item.name} is already on your shopping list.`);
+    }, []);
 
     if (selectedRecipe) {
         return (
@@ -191,351 +139,244 @@ export function Inventory({ onNavigate }: InventoryProps) {
         );
     }
 
-    // Render item card
-    const renderItemCard = (item: typeof items[0], index: number, variant: 'critical' | 'warning' | 'good') => {
-        const freshness = calculateFreshness(item.addedAt, item.expirationDate);
-        const { text: daysText, days } = getDaysUntil(item.expirationDate, currentTime);
-        const emoji = getFoodEmoji(item.name);
+    const heroTitle = criticalItems.length > 0
+        ? 'Use these tonight'
+        : items.length > 0
+            ? 'Everything is on track'
+            : 'Fresh starts here';
 
-        const cardClass = variant === 'critical'
-            ? 'card-urgent glow-red'
-            : variant === 'warning'
-                ? 'card-warning'
-                : 'card-fresh';
-
-        return (
-            <div
-                key={item.id}
-                className={`animate-reveal delay-${Math.min(index, 8)} inventory-card glass-card-elevated rounded-3xl overflow-hidden ${cardClass}`}
-                style={{ '--index': index } as React.CSSProperties}
-                onTouchStart={(e) => handleTouchStart(item.id, e)}
-                onTouchEnd={(e) => handleTouchEnd(item.id, e)}
-            >
-                <div className="p-4 flex gap-4">
-                    {/* Food emoji icon */}
-                    <div className={`w-14 h-14 rounded-3xl flex items-center justify-center text-2xl ${
-                        variant === 'critical'
-                            ? 'bg-red-500/10'
-                            : variant === 'warning'
-                                ? 'bg-amber-500/10'
-                                : 'bg-emerald-500/10'
-                    }`}>
-                        {emoji}
-                    </div>
-
-                    {/* Item details */}
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                                <h3 className="font-semibold text-lg text-[var(--text-primary)] truncate">
-                                    {item.name}
-                                </h3>
-                                <p className="text-sm text-[var(--text-secondary)] truncate">
-                                    {item.brand || item.storageLocation}
-                                    {item.quantity > 1 && ` • ${item.quantity} units`}
-                                </p>
-                            </div>
-                            {variant === 'critical' && (
-                                <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
-                            )}
-                        </div>
-
-                        {/* Freshness bar */}
-                        <div className="mt-3">
-                            <div className="flex items-center justify-between text-xs mb-1.5">
-                                <span className="text-[var(--text-muted)] uppercase tracking-wide font-medium">
-                                    {days <= 0 ? 'Expired' : `Expires in ${daysText}`}
-                                </span>
-                                <span className={`font-mono font-semibold ${
-                                    freshness <= 20 ? 'text-red-400' :
-                                    freshness <= 40 ? 'text-amber-400' : 'text-emerald-400'
-                                }`}>
-                                    {freshness}%
-                                </span>
-                            </div>
-                            <div className="freshness-bar freshness-bar-animated">
-                                <div
-                                    className={`freshness-bar-fill ${getFreshnessClass(freshness)}`}
-                                    style={{ '--bar-width': `${freshness}%` } as React.CSSProperties}
-                                />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Action buttons */}
-                <div className="flex border-t border-[var(--border-color)]/50">
-                    {!item.openedDate && getShelfLifeDescription(item.name) && (
-                        <>
-                            <button
-                                onClick={() => markAsOpened(item.id)}
-                                className="flex-1 flex items-center justify-center gap-2 py-3 text-blue-400 hover:bg-blue-400/10 transition-colors text-sm font-medium"
-                            >
-                                <Calendar className="w-4 h-4" />
-                                Opened
-                            </button>
-                            <div className="w-px bg-[var(--border-color)]/50" />
-                        </>
-                    )}
-                    {item.openedDate && (
-                        <>
-                            <div className="flex-1 flex items-center justify-center py-3 text-[var(--text-muted)] text-xs">
-                                <Clock className="w-3 h-3 mr-1" />
-                                {new Date(item.openedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                            </div>
-                            <div className="w-px bg-[var(--border-color)]/50" />
-                        </>
-                    )}
-                    <button
-                        onClick={() => consumeItem(item.id)}
-                        className="flex-1 flex items-center justify-center gap-2 py-3 text-emerald-400 hover:bg-emerald-400/10 transition-colors text-sm font-medium"
-                    >
-                        <Check className="w-4 h-4" />
-                        Used
-                    </button>
-                    <div className="w-px bg-[var(--border-color)]/50" />
-                    <button
-                        onClick={() => removeItem(item.id)}
-                        className="flex-1 flex items-center justify-center gap-2 py-3 text-[var(--text-muted)] hover:bg-red-400/10 hover:text-red-400 transition-colors text-sm font-medium"
-                    >
-                        <Trash2 className="w-4 h-4" />
-                        Toss
-                    </button>
-                </div>
-            </div>
-        );
-    };
-
-    // Compact item for "All Good" section
-    const renderCompactItem = (item: typeof items[0], index: number) => {
-        const freshness = calculateFreshness(item.addedAt, item.expirationDate);
-        const { text: daysText } = getDaysUntil(item.expirationDate, currentTime);
-        const emoji = getFoodEmoji(item.name);
-
-        return (
-            <div
-                key={item.id}
-                className={`animate-reveal delay-${Math.min(index, 8)} glass-thin rounded-3xl p-3.5 flex items-center gap-3`}
-                onTouchStart={(e) => handleTouchStart(item.id, e)}
-                onTouchEnd={(e) => handleTouchEnd(item.id, e)}
-            >
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-lg">
-                    {emoji}
-                </div>
-                <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-[var(--text-primary)] truncate">{item.name}</h4>
-                    <p className="text-xs text-[var(--text-muted)]">{daysText}</p>
-                </div>
-                <div className="w-12 h-1.5 bg-[var(--bg-tertiary)] rounded-full overflow-hidden">
-                    <div
-                        className={`h-full rounded-full ${getFreshnessClass(freshness)}`}
-                        style={{ width: `${freshness}%` }}
-                    />
-                </div>
-            </div>
-        );
-    };
+    const heroEyebrow = criticalItems.length > 0
+        ? 'Urgent'
+        : items.length > 0
+            ? 'Kitchen calm'
+            : 'Your market';
 
     return (
-        <div className="min-h-full bg-[var(--bg-primary)] text-[var(--text-primary)] pb-32">
-            {/* Header */}
-            <header className="px-5 pt-14 pb-2 flex items-center justify-between">
+        <div className="market-home">
+            <header className="market-header">
                 <ProfileSwitcher />
-                <h1 className="font-display text-lg font-semibold tracking-tight text-[var(--text-primary)]">My Kitchen</h1>
-                <div className="flex items-center gap-0.5">
+                <div className="market-brand-lockup">
+                    <span>No Fridge Spoil</span>
+                    <h1>Fresh Market</h1>
+                </div>
+                <div className="market-header-actions">
                     <button
-                        onClick={() => setShowFilters(!showFilters)}
-                        className="p-2.5 rounded-xl transition-colors active:bg-white/5"
+                        type="button"
+                        className="market-icon-button"
+                        aria-label="Search inventory"
+                        onClick={() => setShowSearch(value => !value)}
                     >
-                        <Search className="w-5 h-5 text-[var(--text-muted)]" />
+                        <MagnifyingGlass size={22} />
                     </button>
                     <button
-                        onClick={() => setShowFilters(!showFilters)}
-                        className="p-2.5 rounded-xl transition-colors active:bg-white/5"
+                        type="button"
+                        className="market-icon-button"
+                        aria-label="Filter inventory"
+                        onClick={() => setShowSearch(value => !value)}
                     >
-                        <SlidersHorizontal className="w-5 h-5 text-[var(--text-muted)]" />
+                        <SlidersHorizontal size={22} />
                     </button>
                 </div>
             </header>
 
-            {/* Search Bar */}
-            {showFilters && (
-                <div className="px-5 pb-4 animate-fade-in">
-                    <input
-                        type="text"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Search items..."
-                        className="w-full px-4 py-3.5 glass-thin rounded-3xl text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)]/30"
-                    />
-                </div>
-            )}
+            <OnboardingCarousel itemCount={items.length} onStartClick={() => onNavigate?.('scan')} />
 
-            {/* Stats Dashboard */}
-            <div className="px-5 mb-6">
-                <div className="glass-card-elevated rounded-3xl p-5 animate-reveal">
-                    {/* Freshness Score */}
-                    <div className="flex items-center justify-between mb-5">
-                        <div>
-                            <p className="text-xs text-[var(--text-muted)] uppercase tracking-widest mb-1.5">Tracked Items</p>
-                            <div className="flex items-baseline gap-2">
-                                <span className="font-display text-4xl font-bold text-[var(--text-primary)] tracking-tight">
-                                    {stats.total}
-                                </span>
-                                <span className="text-sm text-[var(--text-muted)]">items</span>
-                            </div>
-                        </div>
-                        <div className="text-right">
-                            <div className={`font-mono text-3xl font-bold tracking-tight ${
-                                stats.freshnessScore >= 70 ? 'text-emerald-400' :
-                                stats.freshnessScore >= 40 ? 'text-amber-400' : 'text-red-400'
-                            }`}>
-                                {stats.freshnessScore}%
-                            </div>
-                            <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest">Freshness</p>
-                        </div>
-                    </div>
-
-                    {/* Mini stats row */}
-                    <div className="grid grid-cols-3 gap-2">
-                        <div className="text-center py-2.5 px-2 rounded-3xl glass-ultra-thin">
-                            <p className="font-mono text-lg font-bold text-red-400">{stats.urgent}</p>
-                            <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-widest mt-0.5">Urgent</p>
-                        </div>
-                        <div className="text-center py-2.5 px-2 rounded-3xl glass-ultra-thin">
-                            <p className="font-mono text-lg font-bold text-amber-400">{stats.soon}</p>
-                            <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-widest mt-0.5">This Week</p>
-                        </div>
-                        <div className="text-center py-2.5 px-2 rounded-3xl glass-ultra-thin">
-                            <p className="font-mono text-lg font-bold text-emerald-400">{stats.good}</p>
-                            <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-widest mt-0.5">Fresh</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* EAT THIS TONIGHT WIDGET */}
-            {categorizedItems.critical.length > 0 && (
-                <div className="px-4 mb-6 animate-reveal delay-1">
-                    <EatThisTonightWidget
-                        expiringItems={categorizedItems.critical.slice(0, 3)}
-                        onCookNow={handleCookNow}
-                    />
-                </div>
-            )}
-
-            {/* CRITICAL ZONE - Use Today */}
-            {categorizedItems.critical.length > 0 && (
-                <section className="mb-6 animate-reveal delay-2">
-                    <div className="flex items-center gap-2 px-4 mb-3">
-                        <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                        <h2 className="font-display text-lg font-semibold text-red-400">Use Today</h2>
-                        <span className="status-badge status-urgent ml-auto">{categorizedItems.critical.length}</span>
-                    </div>
-                    <div className="px-4 space-y-3">
-                        {categorizedItems.critical.map((item, i) => renderItemCard(item, i, 'critical'))}
-                    </div>
-                </section>
-            )}
-
-            {/* WARNING ZONE - This Week */}
-            {categorizedItems.thisWeek.length > 0 && (
-                <section className="mb-6 animate-reveal delay-3">
-                    <div className="flex items-center gap-2 px-4 mb-3">
-                        <div className="w-2 h-2 rounded-full bg-amber-500" />
-                        <h2 className="font-display text-lg font-semibold text-amber-400">This Week</h2>
-                        <span className="status-badge status-warning ml-auto">{categorizedItems.thisWeek.length}</span>
-                    </div>
-                    <div className="px-4 space-y-3">
-                        {categorizedItems.thisWeek.map((item, i) => renderItemCard(item, i, 'warning'))}
-                    </div>
-                </section>
-            )}
-
-            {/* GOOD ZONE - All Fresh */}
-            {categorizedItems.allGood.length > 0 && (
-                <section className="animate-reveal delay-4">
-                    <div className="flex items-center gap-2 px-4 mb-3">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                        <h2 className="font-display text-lg font-semibold text-emerald-400">All Fresh</h2>
-                        <span className="status-badge status-fresh ml-auto">{categorizedItems.allGood.length}</span>
-                    </div>
-                    <div className="px-4 space-y-2">
-                        {categorizedItems.allGood.map((item, i) => renderCompactItem(item, i))}
-                    </div>
-                </section>
-            )}
-
-            {/* Empty State - Onboarding */}
-            {items.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-8 px-6 text-center min-h-[60vh]">
-                    {/* Step Illustrations */}
-                    <div className="relative w-full max-w-sm mb-8 h-[380px]">
-                        {[0, 1, 2].map((step) => (
-                            <div
-                                key={step}
-                                className={`absolute inset-0 transition-all duration-500 ${
-                                    onboardingStep === step
-                                        ? 'opacity-100 scale-100'
-                                        : 'opacity-0 scale-95 pointer-events-none'
-                                }`}
-                            >
-                                <div className={`w-full h-full rounded-3xl overflow-hidden glass-card-elevated ${
-                                    step === 2 ? 'glow-green' : ''
-                                }`}>
-                                    <img
-                                        src={`/onboarding-step${step + 1}.jpg`}
-                                        alt={`Step ${step + 1}`}
-                                        className="w-full h-full object-cover"
-                                        onError={(e) => {
-                                            e.currentTarget.style.display = 'none';
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Step Title & Description */}
-                    <div className="mb-6 min-h-[100px] flex flex-col justify-center">
-                        <h3 className="font-display text-2xl font-bold mb-2 text-[var(--text-primary)]">
-                            {onboardingStep === 0 && 'Mindful Selection'}
-                            {onboardingStep === 1 && 'The Ticking Clock'}
-                            {onboardingStep === 2 && 'The Rescue Scan'}
-                        </h3>
-                        <p className="text-[var(--text-secondary)]">
-                            {onboardingStep === 0 && 'Buy what you need, waste nothing.'}
-                            {onboardingStep === 1 && 'The freshness clock starts ticking.'}
-                            {onboardingStep === 2 && 'Scan to track and never waste a bite.'}
-                        </p>
-                    </div>
-
-                    {/* Navigation Dots */}
-                    <div className="flex gap-2 mb-8">
-                        {[0, 1, 2].map((step) => (
+            {showSearch && (
+                <section className="market-search-panel" aria-label="Inventory filters">
+                    <label className="market-search-field">
+                        <MagnifyingGlass size={18} />
+                        <input
+                            value={search}
+                            onChange={event => {
+                                setSearch(event.target.value);
+                                setVisibleItemCount(24);
+                            }}
+                            placeholder="Search groceries"
+                            autoFocus
+                        />
+                    </label>
+                    <div className="market-segmented-control">
+                        {([
+                            ['all', 'All'],
+                            ['attention', 'Needs attention'],
+                            ['fresh', 'Fresh'],
+                        ] as const).map(([value, label]) => (
                             <button
-                                key={step}
-                                onClick={() => setOnboardingStep(step)}
-                                className={`transition-all duration-300 rounded-full ${
-                                    onboardingStep === step
-                                        ? 'w-8 h-2.5 bg-[var(--accent-color)]'
-                                        : 'w-2.5 h-2.5 bg-[var(--bg-tertiary)] hover:bg-[var(--text-muted)]'
-                                }`}
-                                aria-label={`Go to step ${step + 1}`}
-                            />
+                                key={value}
+                                type="button"
+                                className={filter === value ? 'is-active' : ''}
+                                onClick={() => {
+                                    setFilter(value);
+                                    setVisibleItemCount(24);
+                                }}
+                            >
+                                {label}
+                            </button>
                         ))}
                     </div>
+                </section>
+            )}
 
-                    {/* CTA Button */}
+            {actionFeedback && (
+                <div className="market-action-feedback" role="status">
+                    <span>{actionFeedback}</span>
+                    <button type="button" onClick={() => setActionFeedback(null)} aria-label="Dismiss action message">Close</button>
+                </div>
+            )}
+
+            {actionQueue.length > 0 && (
+                <section className="market-action-queue" aria-labelledby="action-queue-heading">
+                    <div className="market-section-heading">
+                        <h2 id="action-queue-heading">Do next</h2>
+                        <span>{actionQueue.length} useful action{actionQueue.length === 1 ? '' : 's'}</span>
+                    </div>
+                    <div className="market-action-list">
+                        {actionQueue.map(({ item, label, action }) => (
+                            <article key={`${action}-${item.id}`} className={`market-action-row action-${action}`}>
+                                <span className="market-action-icon" aria-hidden="true">
+                                    {action === 'use' ? <Check size={19} weight="bold" /> : action === 'freeze' ? <Snowflake size={19} /> : <ShoppingCartSimple size={19} />}
+                                </span>
+                                <span>
+                                    <strong>{item.name}</strong>
+                                    <small>{action === 'use' ? `${label}. Use it before it is lost.` : action === 'freeze' ? `${label}. Freeze it to buy more time.` : 'Running low. Add it before the next shop.'}</small>
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => void (action === 'use'
+                                        ? consumeItem(item.id).then(() => setActionFeedback(`${item.name} marked as used.`))
+                                        : action === 'freeze'
+                                            ? freezeItem(item.id, item.name)
+                                            : addToList(item))}
+                                >
+                                    {action === 'use' ? 'Used' : action === 'freeze' ? 'Freeze' : 'Add'}
+                                </button>
+                            </article>
+                        ))}
+                    </div>
+                </section>
+            )}
+
+            <article className={`market-hero ${actionQueue.length > 0 ? 'is-compact' : ''}`} aria-label="Tonight's food plan">
+                <img
+                    src="/market/market-hero.webp"
+                    alt="Spinach, salmon, tomatoes, yogurt, and lemon on a marble counter"
+                    decoding="async"
+                    fetchPriority="high"
+                />
+                <div className="market-hero-copy">
+                    <p className={`market-hero-eyebrow ${criticalItems.length > 0 ? 'is-urgent' : ''}`}>
+                        <span />
+                        {heroEyebrow}
+                    </p>
+                    <h2>{heroTitle}</h2>
                     <button
-                        onClick={() => onNavigate?.('scan')}
-                        className="action-button btn-primary px-8 py-4 rounded-3xl flex items-center gap-3 text-lg group"
+                        type="button"
+                        className="market-hero-action"
+                        onClick={() => onNavigate?.(items.length > 0 ? 'recipes' : 'scan')}
                     >
-                        <Sparkles className="w-5 h-5" />
-                        Start Scanning
-                        <ChevronRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+                        {items.length > 0 ? 'Plan dinner' : 'Start scanning'}
+                        <ArrowRight size={21} weight="bold" />
                     </button>
                 </div>
+            </article>
+
+            <section className="market-inventory-section" aria-labelledby="inventory-heading">
+                <div className="market-section-heading">
+                    <h2 id="inventory-heading">Inventory</h2>
+                    <span>Sorted by urgency</span>
+                </div>
+
+                {sortedItems.length > 0 ? (
+                    <div className="market-inventory-list">
+                        {visibleItems.map(item => {
+                            const { days, label } = getDaysUntil(item.expirationDate, currentTime);
+                            const tone = getStatusTone(days);
+                            const image = getFoodImage(item.name);
+                            const isExpanded = expandedItemId === item.id;
+                            const detail = item.brand || item.storageLocation;
+
+                            return (
+                                <article key={item.id} className={`market-inventory-row tone-${tone}`}>
+                                    <button
+                                        type="button"
+                                        className="market-item-main"
+                                        onClick={() => setExpandedItemId(isExpanded ? null : item.id)}
+                                        aria-expanded={isExpanded}
+                                    >
+                                        <span className="market-status-dot" />
+                                        <span className="market-food-thumb">
+                                            {image ? (
+                                                <img src={image} alt="" loading="lazy" decoding="async" />
+                                            ) : (
+                                                <Package size={24} weight="duotone" />
+                                            )}
+                                        </span>
+                                        <span className="market-item-copy">
+                                            <strong>{item.name}</strong>
+                                            <small>
+                                                {detail}
+                                                {item.quantity > 1 ? ` · ${item.quantity} units` : ''}
+                                            </small>
+                                        </span>
+                                        <span className="market-item-due">{label}</span>
+                                        <CaretRight size={19} weight="bold" className={isExpanded ? 'rotate-90' : ''} />
+                                    </button>
+
+                                    {isExpanded && (
+                                        <div className="market-item-actions">
+                                            {!item.openedDate && getShelfLifeDescription(item.name) && (
+                                                <button type="button" onClick={() => markAsOpened(item.id)}>
+                                                    <CalendarBlank size={17} />
+                                                    Opened
+                                                </button>
+                                            )}
+                                            <button type="button" onClick={() => consumeItem(item.id)}>
+                                                <Check size={17} weight="bold" />
+                                                Used
+                                            </button>
+                                            <button type="button" className="is-destructive" onClick={() => removeItem(item.id)}>
+                                                <Trash size={17} />
+                                                Toss
+                                            </button>
+                                        </div>
+                                    )}
+                                </article>
+                            );
+                        })}
+                        {visibleItemCount < sortedItems.length && (
+                            <button
+                                type="button"
+                                className="market-list-more"
+                                onClick={() => setVisibleItemCount(count => count + 24)}
+                            >
+                                Show {Math.min(24, sortedItems.length - visibleItemCount)} more
+                                <span>{visibleItemCount} of {sortedItems.length}</span>
+                            </button>
+                        )}
+                    </div>
+                ) : (
+                    <div className="market-empty-state">
+                        <Package size={28} weight="duotone" />
+                        <div>
+                            <h3>{items.length === 0 ? 'Your inventory is ready for its first shop' : 'No groceries match'}</h3>
+                            <p>{items.length === 0 ? 'Scan a receipt or add an item to begin tracking freshness.' : 'Try another search or filter.'}</p>
+                        </div>
+                    </div>
+                )}
+
+                <button type="button" className="market-scan-command" onClick={() => onNavigate?.('scan')}>
+                    <Scan size={25} weight="bold" />
+                    Scan groceries
+                </button>
+            </section>
+
+            {criticalItems.length > 0 && (
+                <section className="market-tonight-widget">
+                    <EatThisTonightWidget
+                        expiringItems={criticalItems.slice(0, 3)}
+                        onCookNow={recipe => setSelectedRecipe(recipe)}
+                    />
+                </section>
             )}
         </div>
     );

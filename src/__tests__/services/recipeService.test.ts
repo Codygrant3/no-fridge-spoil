@@ -1,259 +1,85 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { RECIPE_CATALOG } from '../../data/recipeCatalog';
+import {
+  generateQuickRecipes,
+  getRecipeRecommendations,
+  inventoryHasIngredient,
+  isInventoryItemUsable,
+  normalizeIngredientName,
+} from '../../services/recipeService';
 import type { InventoryItem } from '../../types';
 
-// Mock the GoogleGenAI module
-vi.mock('@google/genai', () => ({
-  GoogleGenAI: vi.fn().mockImplementation(() => ({
-    models: {
-      generateContent: vi.fn(),
-    },
-  })),
-}));
+const NOW = new Date('2026-07-16T12:00:00Z');
 
-// We need to mock import.meta.env
-vi.stubEnv('VITE_GEMINI_API_KEY', 'test-api-key');
+function inventoryItem(
+  id: string,
+  name: string,
+  expirationDate: string,
+  status: InventoryItem['status'] = 'good',
+): InventoryItem {
+  return {
+    id,
+    name,
+    expirationDate,
+    dateType: 'best_by',
+    addedAt: '2026-07-15T12:00:00Z',
+    status,
+    quantity: 1,
+    storageLocation: 'fridge',
+  };
+}
 
 describe('recipeService', () => {
-  // Create mock inventory items for testing
-  const mockInventoryItems: InventoryItem[] = [
-    {
-      id: '1',
-      name: 'Milk',
-      expirationDate: '2026-01-25',
-      dateType: 'use_by',
-      addedAt: '2026-01-20T00:00:00Z',
-      status: 'expiring_soon',
-      quantity: 1,
-      storageLocation: 'fridge',
-    },
-    {
-      id: '2',
-      name: 'Eggs',
-      expirationDate: '2026-02-01',
-      dateType: 'best_by',
-      addedAt: '2026-01-20T00:00:00Z',
-      status: 'good',
-      quantity: 12,
-      storageLocation: 'fridge',
-    },
-    {
-      id: '3',
-      name: 'Cheese',
-      expirationDate: '2026-01-22',
-      dateType: 'use_by',
-      addedAt: '2026-01-15T00:00:00Z',
-      status: 'expired',
-      quantity: 1,
-      storageLocation: 'fridge',
-    },
-  ];
-
-  const mockRecipeResponse = [
-    {
-      title: 'Cheese Omelette',
-      description: 'A fluffy omelette with melted cheese',
-      ingredients: ['2 eggs', '1/4 cup milk', '1/2 cup shredded cheese'],
-      instructions: ['Beat eggs with milk', 'Pour into pan', 'Add cheese and fold'],
-      prepTime: '5 mins',
-      cookTime: '10 mins',
-      difficulty: 'Easy',
-      usedIngredients: ['Eggs', 'Milk', 'Cheese'],
-    },
-    {
-      title: 'French Toast',
-      description: 'Classic French toast made with eggs and milk',
-      ingredients: ['4 slices bread', '2 eggs', '1/2 cup milk'],
-      instructions: ['Mix eggs and milk', 'Dip bread', 'Cook until golden'],
-      prepTime: '5 mins',
-      cookTime: '15 mins',
-      difficulty: 'Easy',
-      usedIngredients: ['Eggs', 'Milk'],
-    },
-    {
-      title: 'Cheesy Scrambled Eggs',
-      description: 'Creamy scrambled eggs with cheese',
-      ingredients: ['3 eggs', '2 tbsp milk', '1/4 cup cheese'],
-      instructions: ['Beat eggs with milk', 'Scramble in pan', 'Add cheese at end'],
-      prepTime: '3 mins',
-      cookTime: '5 mins',
-      difficulty: 'Easy',
-      usedIngredients: ['Eggs', 'Milk', 'Cheese'],
-    },
-  ];
-
-  beforeEach(() => {
-    vi.clearAllMocks();
+  it('ships a unique structured catalogue with at least 30 recipes', () => {
+    expect(RECIPE_CATALOG.length).toBeGreaterThanOrEqual(30);
+    expect(new Set(RECIPE_CATALOG.map(recipe => recipe.id)).size).toBe(RECIPE_CATALOG.length);
+    for (const recipe of RECIPE_CATALOG) {
+      expect(recipe.title).not.toBe('');
+      expect(recipe.ingredientDetails.length).toBeGreaterThan(0);
+      expect(recipe.instructions.length).toBeGreaterThan(0);
+    }
   });
 
-  describe('Recipe type validation', () => {
-    it('should have valid recipe structure', () => {
-      const recipe = mockRecipeResponse[0];
-
-      expect(recipe).toHaveProperty('title');
-      expect(recipe).toHaveProperty('description');
-      expect(recipe).toHaveProperty('ingredients');
-      expect(recipe).toHaveProperty('instructions');
-      expect(recipe).toHaveProperty('prepTime');
-      expect(recipe).toHaveProperty('cookTime');
-      expect(recipe).toHaveProperty('difficulty');
-      expect(recipe).toHaveProperty('usedIngredients');
-
-      expect(typeof recipe.title).toBe('string');
-      expect(typeof recipe.description).toBe('string');
-      expect(Array.isArray(recipe.ingredients)).toBe(true);
-      expect(Array.isArray(recipe.instructions)).toBe(true);
-      expect(Array.isArray(recipe.usedIngredients)).toBe(true);
-      expect(['Easy', 'Medium', 'Hard']).toContain(recipe.difficulty);
-    });
+  it('normalizes quantities, descriptors, plurals, and known aliases', () => {
+    expect(normalizeIngredientName('2 cups fresh baby spinach')).toBe('spinach');
+    expect(normalizeIngredientName('Boneless Skinless Chicken Breasts')).toBe('chicken');
+    expect(normalizeIngredientName('1 can garbanzo beans')).toBe('chickpea');
   });
 
-  describe('Recipe filtering logic', () => {
-    it('should identify expiring items from inventory', () => {
-      const expiringItems = mockInventoryItems.filter(
-        (i) => i.status === 'expiring_soon' || i.status === 'expired'
-      );
-
-      expect(expiringItems).toHaveLength(2);
-      expect(expiringItems.map((i) => i.name)).toContain('Milk');
-      expect(expiringItems.map((i) => i.name)).toContain('Cheese');
-    });
-
-    it('should filter quick recipes by total time', () => {
-      const maxTotalTime = 30;
-
-      const quickRecipes = mockRecipeResponse.filter((recipe) => {
-        const prepMins = parseInt(recipe.prepTime) || 0;
-        const cookMins = parseInt(recipe.cookTime) || 0;
-        return prepMins + cookMins <= maxTotalTime;
-      });
-
-      // All mock recipes are under 30 mins total
-      expect(quickRecipes).toHaveLength(3);
-    });
-
-    it('should filter out recipes over time limit', () => {
-      const recipesWithLong = [
-        ...mockRecipeResponse,
-        {
-          title: 'Slow Roast',
-          description: 'A long cooking dish',
-          ingredients: ['beef'],
-          instructions: ['Cook slowly'],
-          prepTime: '30 mins',
-          cookTime: '120 mins',
-          difficulty: 'Hard' as const,
-          usedIngredients: ['Beef'],
-        },
-      ];
-
-      const maxTotalTime = 30;
-      const quickRecipes = recipesWithLong.filter((recipe) => {
-        const prepMins = parseInt(recipe.prepTime) || 0;
-        const cookMins = parseInt(recipe.cookTime) || 0;
-        return prepMins + cookMins <= maxTotalTime;
-      });
-
-      expect(quickRecipes).toHaveLength(3);
-      expect(quickRecipes.find((r) => r.title === 'Slow Roast')).toBeUndefined();
-    });
-
-    it('should handle recipes with non-numeric time strings', () => {
-      const recipesWithWeirdTimes = [
-        {
-          title: 'Quick Snack',
-          description: 'Fast',
-          ingredients: ['stuff'],
-          instructions: ['Make it'],
-          prepTime: 'about 5 mins',
-          cookTime: 'approximately 10 mins',
-          difficulty: 'Easy' as const,
-          usedIngredients: ['stuff'],
-        },
-      ];
-
-      const quickRecipes = recipesWithWeirdTimes.filter((recipe) => {
-        const prepMins = parseInt(recipe.prepTime) || 0;
-        const cookMins = parseInt(recipe.cookTime) || 0;
-        return prepMins + cookMins <= 30;
-      });
-
-      // parseInt('about 5 mins') returns NaN, which becomes 0
-      // So this recipe would pass the filter with 0 + 0 = 0 mins
-      expect(quickRecipes).toHaveLength(1);
-    });
+  it('never treats expired inventory as usable', () => {
+    const expired = inventoryItem('expired', 'Spinach', '2026-07-15', 'expired');
+    expect(isInventoryItemUsable(expired, NOW)).toBe(false);
+    expect(inventoryHasIngredient('spinach', [expired], NOW)).toBe(false);
   });
 
-  describe('Inventory item formatting', () => {
-    it('should format inventory items for prompt', () => {
-      const itemNames = mockInventoryItems.map((i) => `${i.name} (${i.quantity} units)`).join(', ');
+  it('prioritizes recipes that use ingredients expiring soon', () => {
+    const items = [
+      inventoryItem('spinach', 'Baby Spinach', '2026-07-17', 'expiring_soon'),
+      inventoryItem('egg', 'Eggs', '2026-07-24'),
+      inventoryItem('bread', 'Whole Grain Bread', '2026-07-22'),
+    ];
+    const recommendations = getRecipeRecommendations(items, { now: NOW });
+    const spinachToast = recommendations.find(recipe => recipe.id === 'spinach-egg-toast');
 
-      expect(itemNames).toBe('Milk (1 units), Eggs (12 units), Cheese (1 units)');
-    });
-
-    it('should identify expiring item names for prompt', () => {
-      const expiringNames = mockInventoryItems
-        .filter((i) => i.status === 'expiring_soon' || i.status === 'expired')
-        .map((i) => i.name)
-        .join(', ');
-
-      expect(expiringNames).toBe('Milk, Cheese');
-    });
-
-    it('should handle empty inventory', () => {
-      const emptyItems: InventoryItem[] = [];
-      const itemNames = emptyItems.map((i) => `${i.name} (${i.quantity} units)`).join(', ');
-
-      expect(itemNames).toBe('');
-    });
-
-    it('should handle inventory with no expiring items', () => {
-      const freshItems: InventoryItem[] = [
-        {
-          id: '1',
-          name: 'Fresh Apple',
-          expirationDate: '2026-02-15',
-          dateType: 'best_by',
-          addedAt: '2026-01-20T00:00:00Z',
-          status: 'good',
-          quantity: 5,
-          storageLocation: 'fridge',
-        },
-      ];
-
-      const expiringNames = freshItems
-        .filter((i) => i.status === 'expiring_soon' || i.status === 'expired')
-        .map((i) => i.name)
-        .join(', ');
-
-      expect(expiringNames).toBe('');
-    });
+    expect(spinachToast?.match.expiringIngredients).toContain('Baby Spinach');
+    expect(spinachToast?.match.reasons[0]).toContain('before it expires');
+    expect(recommendations[0].match.score).toBeGreaterThan(0);
   });
 
-  describe('JSON response parsing', () => {
-    it('should handle clean JSON response', () => {
-      const jsonStr = JSON.stringify(mockRecipeResponse);
-      const recipes = JSON.parse(jsonStr);
+  it('filters quick recommendations by total preparation time', async () => {
+    const items = [
+      inventoryItem('banana', 'Bananas', '2026-07-18'),
+      inventoryItem('oats', 'Rolled Oats', '2026-08-01'),
+      inventoryItem('egg', 'Eggs', '2026-07-24'),
+      inventoryItem('milk', 'Milk', '2026-07-19'),
+    ];
+    const recipes = await generateQuickRecipes(items, 20, NOW);
 
-      expect(recipes).toHaveLength(3);
-      expect(recipes[0].title).toBe('Cheese Omelette');
-    });
+    expect(recipes.length).toBeGreaterThan(0);
+    expect(recipes.every(recipe => recipe.prepMinutes + recipe.cookMinutes <= 20)).toBe(true);
+  });
 
-    it('should clean markdown code blocks from response', () => {
-      const responseWithMarkdown = '```json\n' + JSON.stringify(mockRecipeResponse) + '\n```';
-
-      const cleanedJson = responseWithMarkdown.replace(/```json/g, '').replace(/```/g, '').trim();
-      const recipes = JSON.parse(cleanedJson);
-
-      expect(recipes).toHaveLength(3);
-    });
-
-    it('should handle response with extra whitespace', () => {
-      const responseWithWhitespace = '\n\n  ' + JSON.stringify(mockRecipeResponse) + '  \n\n';
-
-      const cleanedJson = responseWithWhitespace.replace(/```json/g, '').replace(/```/g, '').trim();
-      const recipes = JSON.parse(cleanedJson);
-
-      expect(recipes).toHaveLength(3);
-    });
+  it('returns no generated recommendations for an empty inventory', async () => {
+    expect(await generateQuickRecipes([], 30)).toEqual([]);
   });
 });

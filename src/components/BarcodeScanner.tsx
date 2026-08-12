@@ -26,14 +26,17 @@ export function BarcodeScanner({ isOpen, onClose, onProductFound }: BarcodeScann
         try {
             const product = await lookupBarcode(barcode);
             onProductFound(product);
-            handleClose();
+            setShowManualEntry(false);
+            setManualBarcode('');
+            setCameraError(null);
+            onClose();
         } catch (err) {
             console.error('Lookup error:', err);
             setError('Failed to lookup product. Try manual entry.');
         } finally {
             setIsLookingUp(false);
         }
-    }, [onProductFound]);
+    }, [onClose, onProductFound]);
 
     // Start live camera scanner
     const startLiveScanner = useCallback(async () => {
@@ -123,14 +126,14 @@ export function BarcodeScanner({ isOpen, onClose, onProductFound }: BarcodeScann
         return () => {
             stopLiveScanner();
         };
-    }, [isOpen, showManualEntry]);
+    }, [isOpen, showManualEntry, isLookingUp, startLiveScanner, stopLiveScanner]);
 
     // Cleanup on unmount
     useEffect(() => {
         return () => {
             stopLiveScanner();
         };
-    }, []);
+    }, [stopLiveScanner]);
 
     // Photo capture fallback
     const handleImageCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {

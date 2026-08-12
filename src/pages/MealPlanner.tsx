@@ -1,113 +1,130 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import {
+    Apple,
+    ChevronLeft,
+    Clock3,
+    Loader2,
+    Moon,
+    Plus,
+    ShoppingCart,
+    Sparkles,
+    Sun,
+    Sunrise,
+    UtensilsCrossed,
+    X,
+} from 'lucide-react';
 import { db } from '../db/database';
 import type { DbMealPlan, MealSlot } from '../db/database';
 import { useInventory } from '../context/InventoryContext';
 import {
-    getOrCreateWeekPlan,
-    addMealToSlot,
-    removeMealFromSlot,
-    addMissingToShoppingList,
-    suggestRecipesForSlot,
-    getMissingIngredients,
     DAY_LABELS,
     MEAL_SLOTS,
+    addMealToSlot,
+    addMissingToShoppingList,
+    getMissingIngredients,
+    getOrCreateWeekPlan,
+    removeMealFromSlot,
+    suggestRecipesForSlot,
 } from '../services/mealPlanService';
-import type { Recipe } from '../services/recipeService';
-import {
-    ChevronLeft,
-    Plus,
-    X,
-    ShoppingCart,
-    Sparkles,
-    Loader2,
-    UtensilsCrossed,
-} from 'lucide-react';
+import type { RecipeRecommendation } from '../services/recipeService';
+import { useModalFocus } from '../hooks/useModalFocus';
 
 interface MealPlannerProps {
     onBack: () => void;
 }
 
+const SLOT_DETAILS: Record<MealSlot['slot'], { label: string; icon: typeof Sunrise }> = {
+    breakfast: { label: 'Breakfast', icon: Sunrise },
+    lunch: { label: 'Lunch', icon: Sun },
+    dinner: { label: 'Dinner', icon: Moon },
+    snack: { label: 'Snack', icon: Apple },
+};
+
 export function MealPlanner({ onBack }: MealPlannerProps) {
     const { items } = useInventory();
     const [plan, setPlan] = useState<DbMealPlan | null>(null);
     const [selectedSlot, setSelectedSlot] = useState<{ day: number; slot: MealSlot['slot'] } | null>(null);
-    const [suggestedRecipes, setSuggestedRecipes] = useState<Recipe[]>([]);
+    const [suggestedRecipes, setSuggestedRecipes] = useState<RecipeRecommendation[]>([]);
     const [isGenerating, setIsGenerating] = useState(false);
     const [missingCount, setMissingCount] = useState(0);
     const [addedToList, setAddedToList] = useState<number | null>(null);
+    const mealPickerRef = useRef<HTMLElement>(null);
+    const mealPickerCloseRef = useRef<HTMLButtonElement>(null);
 
-    // Load current week plan
-    useEffect(() => {
-        getOrCreateWeekPlan().then(setPlan);
+    const closeMealPicker = useCallback(() => {
+        setSelectedSlot(null);
+        setSuggestedRecipes([]);
     }, []);
 
-    // Live query for real-time plan updates
+    useModalFocus(Boolean(selectedSlot), mealPickerRef, closeMealPicker, mealPickerCloseRef);
+
+    useEffect(() => {
+        void getOrCreateWeekPlan().then(setPlan);
+    }, []);
+
     const livePlan = useLiveQuery(
         () => plan ? db.mealPlans.get(plan.id) : undefined,
         [plan?.id],
     );
 
-    // Update missing ingredients count when plan changes
     useEffect(() => {
         if (livePlan) {
-            getMissingIngredients(livePlan).then(m => setMissingCount(m.length));
+            void getMissingIngredients(livePlan).then(missing => setMissingCount(missing.length));
         }
     }, [livePlan]);
 
-    const activePlan = livePlan || plan;
+    useEffect(() => {
+        if (addedToList === null) return;
+        const timeout = window.setTimeout(() => setAddedToList(null), 3000);
+        return () => window.clearTimeout(timeout);
+    }, [addedToList]);
 
-    const getMealForSlot = (day: number, slot: MealSlot['slot']): MealSlot | undefined => {
-        return activePlan?.meals.find(m => m.day === day && m.slot === slot);
-    };
+    const activePlan = livePlan || plan;
+    const mealCount = activePlan?.meals.length ?? 0;
+
+    const getMealForSlot = (day: number, slot: MealSlot['slot']): MealSlot | undefined =>
+        activePlan?.meals.find(meal => meal.day === day && meal.slot === slot);
 
     const handleSlotClick = async (day: number, slot: MealSlot['slot']) => {
         const existing = getMealForSlot(day, slot);
-        if (existing) {
-            // Remove meal
-            if (activePlan) {
-                await removeMealFromSlot(activePlan.id, day, slot);
-            }
-        } else {
-            // Open recipe picker
-            setSelectedSlot({ day, slot });
-            setSuggestedRecipes([]);
+        if (existing && activePlan) {
+            await removeMealFromSlot(activePlan.id, day, slot);
+            return;
         }
+
+        setSelectedSlot({ day, slot });
+        setSuggestedRecipes([]);
     };
 
     const handleGenerateRecipes = async () => {
         setIsGenerating(true);
         try {
-            const recipes = await suggestRecipesForSlot(items);
-            setSuggestedRecipes(recipes);
+            setSuggestedRecipes(await suggestRecipesForSlot(items, selectedSlot?.slot));
         } catch (error) {
             console.error('Failed to generate recipes:', error);
+        } finally {
+            setIsGenerating(false);
         }
-        setIsGenerating(false);
     };
 
-    const handleSelectRecipe = async (recipe: Recipe) => {
+    const handleSelectRecipe = async (recipe: RecipeRecommendation) => {
         if (!activePlan || !selectedSlot) return;
         await addMealToSlot(
             activePlan.id,
             selectedSlot.day,
             selectedSlot.slot,
             recipe.title,
-            recipe.ingredients,
+            recipe.ingredientDetails
+                .filter(ingredient => !ingredient.pantryStaple && !ingredient.optional)
+                .map(ingredient => (ingredient.amount + ' ' + ingredient.name).trim()),
         );
-        setSelectedSlot(null);
-        setSuggestedRecipes([]);
+        closeMealPicker();
     };
 
     const handleAddManualMeal = async (name: string) => {
         if (!activePlan || !selectedSlot) return;
-        await addMealToSlot(
-            activePlan.id,
-            selectedSlot.day,
-            selectedSlot.slot,
-            name,
-            [],
-        );
+        await addMealToSlot(activePlan.id, selectedSlot.day, selectedSlot.slot, name, []);
         setSelectedSlot(null);
     };
 
@@ -115,150 +132,129 @@ export function MealPlanner({ onBack }: MealPlannerProps) {
         if (!activePlan) return;
         const count = await addMissingToShoppingList(activePlan);
         setAddedToList(count);
-        setTimeout(() => setAddedToList(null), 3000);
-    };
-
-    const slotEmoji: Record<MealSlot['slot'], string> = {
-        breakfast: '🌅',
-        lunch: '☀️',
-        dinner: '🌙',
-        snack: '🍎',
     };
 
     return (
-        <div className="min-h-full bg-[var(--bg-primary)] text-white pb-32">
-            {/* Header */}
-            <header className="flex items-center justify-between p-4 pt-12">
-                <button
-                    onClick={onBack}
-                    className="p-2 bg-[var(--bg-secondary)] rounded-lg border border-[var(--border-color)] inventory-card"
-                >
-                    <ChevronLeft className="w-6 h-6" />
+        <div className="market-subpage market-planner-page">
+            <header className="market-subpage-header">
+                <button type="button" onClick={onBack} className="market-icon-button" aria-label="Back to recipes">
+                    <ChevronLeft aria-hidden="true" />
                 </button>
-                <h1 className="text-xl font-bold">Meal Planner</h1>
+                <div>
+                    <p className="market-kicker">This week</p>
+                    <h1>Meal planner</h1>
+                </div>
                 <button
+                    type="button"
                     onClick={handleAddToShoppingList}
-                    className="relative p-2 bg-[var(--bg-secondary)] rounded-lg border border-[var(--border-color)] inventory-card"
-                    title="Add missing ingredients to shopping list"
+                    className="market-icon-button market-planner-cart"
+                    aria-label={`Add ${missingCount} missing ingredients to shopping list`}
                 >
-                    <ShoppingCart className="w-5 h-5" />
-                    {missingCount > 0 && (
-                        <span className="absolute -top-1 -right-1 w-5 h-5 bg-orange-500 rounded-full text-[10px] font-bold flex items-center justify-center">
-                            {missingCount}
-                        </span>
-                    )}
+                    <ShoppingCart aria-hidden="true" />
+                    {missingCount > 0 && <span>{missingCount}</span>}
                 </button>
             </header>
 
-            {/* Added to list feedback */}
+            <section className="market-planner-intro">
+                <p>Build a calmer week around what is already fresh.</p>
+                <strong>{mealCount} meal{mealCount === 1 ? '' : 's'} planned</strong>
+            </section>
+
             {addedToList !== null && (
-                <div className="px-4 pb-3">
-                    <div className="bg-emerald-500/20 border border-[var(--accent-color)]/50 rounded-xl p-3 text-center text-emerald-300 text-sm font-medium">
-                        Added {addedToList} item{addedToList !== 1 ? 's' : ''} to shopping list!
-                    </div>
+                <div className="market-notice market-notice-success" role="status">
+                    Added {addedToList} item{addedToList !== 1 ? 's' : ''} to your shopping list.
                 </div>
             )}
 
-            {/* Week Grid */}
-            <div className="px-4 space-y-3">
+            <main className="market-planner-days">
                 {DAY_LABELS.map((dayLabel, dayIndex) => (
-                    <div key={dayLabel} className="bg-[var(--bg-secondary)] rounded-3xl p-4 border border-[var(--border-color)] inventory-card">
-                        <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wide mb-3">
-                            {dayLabel}
-                        </h3>
-                        <div className="grid grid-cols-4 gap-2">
+                    <section key={dayLabel} className="market-planner-day">
+                        <div className="market-planner-day-heading">
+                            <h2>{dayLabel}</h2>
+                            <span>{MEAL_SLOTS.filter(slot => getMealForSlot(dayIndex, slot)).length}/4</span>
+                        </div>
+                        <div className="market-planner-grid">
                             {MEAL_SLOTS.map(slot => {
                                 const meal = getMealForSlot(dayIndex, slot);
+                                const SlotIcon = SLOT_DETAILS[slot].icon;
                                 return (
                                     <button
+                                        type="button"
                                         key={slot}
-                                        onClick={() => handleSlotClick(dayIndex, slot)}
-                                        className={`flex flex-col items-center p-2 rounded-xl text-center transition-all min-h-[70px] ${
-                                            meal
-                                                ? 'bg-[var(--accent-color)]/20 border border-[var(--accent-color)]/40'
-                                                : 'bg-[var(--bg-tertiary)] border border-[var(--border-color)] hover:border-[var(--accent-color)]/50'
-                                        }`}
+                                        onClick={() => void handleSlotClick(dayIndex, slot)}
+                                        className={`market-meal-slot${meal ? ' is-filled' : ''}`}
+                                        aria-label={meal ? `Remove ${meal.recipeName} from ${dayLabel} ${slot}` : `Add ${slot} for ${dayLabel}`}
                                     >
-                                        <span className="text-lg">{slotEmoji[slot]}</span>
-                                        {meal ? (
-                                            <span className="text-[10px] text-white font-medium mt-1 leading-tight line-clamp-2">
-                                                {meal.recipeName}
-                                            </span>
-                                        ) : (
-                                            <Plus className="w-3.5 h-3.5 text-[var(--text-muted)] mt-1" />
-                                        )}
+                                        <SlotIcon aria-hidden="true" />
+                                        <span>{meal?.recipeName || SLOT_DETAILS[slot].label}</span>
+                                        {!meal && <Plus aria-hidden="true" className="market-slot-plus" />}
                                     </button>
                                 );
                             })}
                         </div>
-                    </div>
+                    </section>
                 ))}
-            </div>
+            </main>
 
-            {/* Recipe Picker Modal */}
             {selectedSlot && (
                 <div
-                    className="fixed inset-0 bg-black/70 flex items-end justify-center z-50"
-                    onClick={() => { setSelectedSlot(null); setSuggestedRecipes([]); }}
+                    className="market-sheet-backdrop"
+                    role="presentation"
+                    onClick={closeMealPicker}
                 >
-                    <div
-                        className="bg-[var(--bg-secondary)] w-full max-w-md rounded-t-3xl p-6 max-h-[70vh] overflow-y-auto border-t border-[var(--border-color)]"
-                        onClick={e => e.stopPropagation()}
-                    >
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-bold">
-                                {slotEmoji[selectedSlot.slot]} {selectedSlot.slot.charAt(0).toUpperCase() + selectedSlot.slot.slice(1)} — {DAY_LABELS[selectedSlot.day]}
-                            </h3>
+                    <section ref={mealPickerRef} tabIndex={-1} className="market-sheet market-recipe-picker" role="dialog" aria-modal="true" aria-labelledby="meal-picker-title" onClick={event => event.stopPropagation()}>
+                        <div className="market-sheet-handle" />
+                        <div className="market-sheet-heading">
+                            <div>
+                                <p className="market-kicker">{DAY_LABELS[selectedSlot.day]}</p>
+                                <h2 id="meal-picker-title">Add {SLOT_DETAILS[selectedSlot.slot].label.toLowerCase()}</h2>
+                            </div>
                             <button
-                                onClick={() => { setSelectedSlot(null); setSuggestedRecipes([]); }}
-                                className="p-2 hover:bg-white/10 rounded-lg"
+                                ref={mealPickerCloseRef}
+                                type="button"
+                                onClick={closeMealPicker}
+                                className="market-icon-button"
+                                aria-label="Close meal picker"
                             >
-                                <X className="w-5 h-5" />
+                                <X aria-hidden="true" />
                             </button>
                         </div>
 
-                        {/* AI Suggest Button */}
                         <button
-                            onClick={handleGenerateRecipes}
+                            type="button"
+                            onClick={() => void handleGenerateRecipes()}
                             disabled={isGenerating}
-                            className="w-full py-3 bg-purple-500/20 border border-purple-500/40 rounded-xl text-purple-300 font-semibold flex items-center justify-center gap-2 mb-4 hover:bg-purple-500/30 transition-colors disabled:opacity-50"
+                            className="market-primary-command market-suggest-command"
                         >
-                            {isGenerating ? (
-                                <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</>
-                            ) : (
-                                <><Sparkles className="w-4 h-4" /> Suggest Recipes Using Expiring Items</>
-                            )}
+                            {isGenerating ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
+                            {isGenerating ? 'Finding good matches...' : 'Suggest recipes from my fridge'}
                         </button>
 
-                        {/* Suggested Recipes */}
                         {suggestedRecipes.length > 0 && (
-                            <div className="space-y-3 mb-4">
-                                {suggestedRecipes.map((recipe, i) => (
+                            <div className="market-suggested-recipes">
+                                {suggestedRecipes.map(recipe => (
                                     <button
-                                        key={i}
-                                        onClick={() => handleSelectRecipe(recipe)}
-                                        className="w-full text-left p-4 bg-[var(--bg-tertiary)] rounded-xl border border-[var(--border-color)] hover:border-[var(--accent-color)]/50 transition-all"
+                                        type="button"
+                                        key={recipe.title}
+                                        onClick={() => void handleSelectRecipe(recipe)}
+                                        className="market-suggested-recipe"
                                     >
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <UtensilsCrossed className="w-4 h-4 text-[var(--accent-color)]" />
-                                            <span className="font-bold text-sm">{recipe.title}</span>
-                                        </div>
-                                        <p className="text-xs text-[var(--text-secondary)] mb-2">{recipe.description}</p>
-                                        <div className="flex gap-2 text-[10px] text-[var(--text-muted)]">
-                                            <span>⏱ {recipe.prepTime} + {recipe.cookTime}</span>
-                                            <span>· {recipe.difficulty}</span>
-                                        </div>
+                                        <UtensilsCrossed aria-hidden="true" />
+                                        <span>
+                                            <strong>{recipe.title}</strong>
+                                            <small>{recipe.description}</small>
+                                            <em><Clock3 aria-hidden="true" /> {recipe.prepTime} + {recipe.cookTime} · {recipe.difficulty}</em>
+                                        </span>
                                     </button>
                                 ))}
                             </div>
                         )}
 
-                        {/* Quick Add Manual */}
-                        <div className="border-t border-[var(--border-color)] pt-4">
-                            <p className="text-xs text-[var(--text-muted)] mb-2 font-semibold uppercase tracking-wide">Or add manually</p>
+                        <div className="market-manual-meal">
+                            <p>Or add a meal manually</p>
                             <QuickAddMeal onAdd={handleAddManualMeal} />
                         </div>
-                    </div>
+                    </section>
                 </div>
             )}
         </div>
@@ -268,33 +264,25 @@ export function MealPlanner({ onBack }: MealPlannerProps) {
 function QuickAddMeal({ onAdd }: { onAdd: (name: string) => void }) {
     const [name, setName] = useState('');
 
+    const submit = () => {
+        const trimmedName = name.trim();
+        if (!trimmedName) return;
+        onAdd(trimmedName);
+        setName('');
+    };
+
     return (
-        <div className="flex gap-2">
+        <div className="market-inline-form">
             <input
                 type="text"
                 value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="e.g., Chicken Stir Fry"
-                className="flex-1 px-4 py-3 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-white outline-none text-sm"
-                onKeyDown={e => {
-                    if (e.key === 'Enter' && name.trim()) {
-                        onAdd(name.trim());
-                        setName('');
-                    }
+                onChange={event => setName(event.target.value)}
+                placeholder="Chicken stir fry"
+                onKeyDown={event => {
+                    if (event.key === 'Enter') submit();
                 }}
             />
-            <button
-                onClick={() => {
-                    if (name.trim()) {
-                        onAdd(name.trim());
-                        setName('');
-                    }
-                }}
-                disabled={!name.trim()}
-                className="px-4 py-3 bg-[var(--accent-color)] rounded-xl text-white font-semibold disabled:opacity-50"
-            >
-                Add
-            </button>
+            <button type="button" onClick={submit} disabled={!name.trim()}>Add</button>
         </div>
     );
 }

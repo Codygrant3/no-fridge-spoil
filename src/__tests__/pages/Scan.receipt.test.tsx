@@ -1,35 +1,43 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Scan } from '../../pages/Scan';
+import { db } from '../../db/database';
 
 const mocks = vi.hoisted(() => ({
   analyzeReceipt: vi.fn(),
+  analyzeImage: vi.fn(),
   compressReceiptImage: vi.fn(),
 }));
 
 vi.mock('../../services/receiptOCRService', () => ({
   analyzeReceipt: mocks.analyzeReceipt,
-  getGeminiReceiptDiagnostics: () => ({
-    configured: true,
+  getReceiptOcrDiagnostics: () => ({
+    provider: 'azure-document-intelligence',
+    providerLabel: 'Azure Document Intelligence',
+    configured: false,
     reachable: 'unknown',
-    status: 'configured',
-    message: 'Gemini API key is configured. Connectivity is verified when receipt OCR runs.',
+    status: 'unchecked',
+    message: 'Receipt OCR runs through the secure app service.',
   }),
-  checkGeminiReceiptHealth: () => Promise.resolve({
+  checkReceiptOcrHealth: () => Promise.resolve({
+    provider: 'azure-document-intelligence',
+    providerLabel: 'Azure Document Intelligence',
     configured: true,
     reachable: 'ok',
-    status: 'configured',
-    message: 'Gemini is configured and reachable.',
+    status: 'ready',
+    message: 'Azure Document Intelligence is configured and reachable.',
   }),
   queueReceiptScan: vi.fn(() => Promise.resolve({ id: 'queued', name: 'receipt.png', type: 'image/png', dataUrl: '', queuedAt: '', reason: '' })),
   getQueuedReceiptScans: () => [],
   clearQueuedReceiptScan: vi.fn(),
   classifyReceiptOcrError: (error: Error) => ({
+    provider: 'azure-document-intelligence',
+    providerLabel: 'Azure Document Intelligence',
     configured: false,
     reachable: 'blocked',
-    status: error.message.includes('API Key') ? 'missing-key' : 'unknown-error',
-    message: error.message.includes('API Key')
-      ? 'VITE_GEMINI_API_KEY is not configured. Receipt OCR cannot run.'
+    status: error.message.includes('not configured') ? 'missing-configuration' : 'unknown-error',
+    message: error.message.includes('not configured')
+      ? 'Azure receipt OCR is not configured on the app server.'
       : error.message,
   }),
 }));
@@ -44,7 +52,7 @@ vi.mock('../../services/receiptImageQualityService', () => ({
 }));
 
 vi.mock('../../services/visionService', () => ({
-  analyzeImage: vi.fn(),
+  analyzeImage: mocks.analyzeImage,
 }));
 
 vi.mock('../../components/ReviewItems', () => ({
@@ -81,9 +89,19 @@ function uploadSyntheticReceipt(container: HTMLElement) {
 }
 
 describe('Scan receipt mode', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     mocks.compressReceiptImage.mockImplementation((file: File) => Promise.resolve(file));
+    localStorage.clear();
+    await db.receiptHistory.clear();
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: undefined,
+    });
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'visible',
+    });
   });
 
   it('uploads a receipt image, uses receipt OCR, and opens review with extracted grocery items', async () => {
@@ -113,13 +131,18 @@ describe('Scan receipt mode', () => {
 
     const { container } = render(<Scan />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Receipt' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Receipt' }));
     expect(screen.getByText('Tap CAPTURE to photograph your receipt')).toBeInTheDocument();
+    expect(screen.getByText('Ready to capture')).toBeInTheDocument();
+    expect(screen.queryByText('Receipt OCR setup')).not.toBeInTheDocument();
 
     const receiptFile = uploadSyntheticReceipt(container);
 
     await waitFor(() => expect(mocks.compressReceiptImage).toHaveBeenCalledWith(receiptFile));
-    await waitFor(() => expect(mocks.analyzeReceipt).toHaveBeenCalledWith(receiptFile));
+    await waitFor(() => expect(mocks.analyzeReceipt).toHaveBeenCalledWith(
+      receiptFile,
+      expect.objectContaining({ onProgress: expect.any(Function) }),
+    ));
 
     expect(await screen.findByText('Review Scanned Items')).toBeInTheDocument();
     expect(screen.getByText('Organic Whole Milk x1')).toBeInTheDocument();
@@ -127,27 +150,128 @@ describe('Scan receipt mode', () => {
     expect(screen.getByText('Skipped: Dish Soap')).toBeInTheDocument();
   });
 
-  it('shows a setup-specific error when receipt OCR reports a missing Gemini API key', async () => {
+  it('shows a setup-specific error when Azure receipt OCR is not configured', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    mocks.analyzeReceipt.mockRejectedValue(new Error('Missing Gemini API Key'));
+    mocks.analyzeReceipt.mockRejectedValue(new Error('Azure receipt OCR is not configured on the app server.'));
 
     const { container } = render(<Scan />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Receipt' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Receipt' }));
     uploadSyntheticReceipt(container);
 
-    expect(await screen.findByText(/Gemini API key|VITE_GEMINI_API_KEY/)).toBeInTheDocument();
+    expect(await screen.findByText(/^Scan failed: Azure receipt OCR is not configured/)).toBeInTheDocument();
   });
 
-  it('loads a local sample receipt without calling Gemini OCR', async () => {
+  it('loads a local sample receipt without calling cloud OCR', async () => {
     render(<Scan />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Receipt' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Receipt' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Receipt settings and scan history' }));
     fireEvent.click(screen.getByRole('button', { name: 'Try sample receipt' }));
 
     expect(await screen.findByText('Review Scanned Items')).toBeInTheDocument();
     expect(screen.getByText('Source: sample')).toBeInTheDocument();
     expect(screen.getByText('Organic Whole Milk x1')).toBeInTheDocument();
     expect(mocks.analyzeReceipt).not.toHaveBeenCalled();
+  });
+
+  it('shows privacy-safe guidance when camera permission is denied', async () => {
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: {
+        getUserMedia: vi.fn().mockRejectedValue(new DOMException('Denied by browser', 'NotAllowedError')),
+      },
+    });
+    render(<Scan />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open camera for item' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Camera access is blocked. Allow camera permission in your browser, or choose a photo instead.',
+    );
+    expect(screen.queryByText(/Denied by browser/i)).not.toBeInTheDocument();
+  });
+
+  it('does not expose raw single-item analysis errors', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    mocks.analyzeImage.mockRejectedValue(new Error('internal-provider-key-abc failed at private endpoint'));
+    const { container } = render(<Scan />);
+    const galleryInput = container.querySelector<HTMLInputElement>('input[type="file"]');
+    const file = new File(['single item'], 'milk.png', { type: 'image/png' });
+
+    fireEvent.change(galleryInput!, { target: { files: [file] } });
+
+    expect(await screen.findByText(/This item could not be analyzed/)).toBeInTheDocument();
+    expect(screen.queryByText(/internal-provider-key-abc/i)).not.toBeInTheDocument();
+  });
+
+  it('stops an active camera when the app moves to the background', async () => {
+    const track = { stop: vi.fn(), onended: null as (() => void) | null };
+    const stream = {
+      getTracks: () => [track],
+      getVideoTracks: () => [track],
+    } as unknown as MediaStream;
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: {
+        getUserMedia: vi.fn().mockResolvedValue(stream),
+      },
+    });
+    render(<Scan />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open camera for item' }));
+    await waitFor(() => expect(screen.getByText('Position your item in the frame and tap capture')).toBeInTheDocument());
+
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'hidden',
+    });
+    fireEvent(document, new Event('visibilitychange'));
+
+    await waitFor(() => expect(track.stop).toHaveBeenCalled());
+    expect(screen.getByText(/Camera paused while the app was in the background/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Resume camera' })).toBeInTheDocument();
+  });
+
+  it('searches saved receipts and confirms individual deletion', async () => {
+    await db.receiptHistory.bulkPut([
+      {
+        id: 'alpha-receipt',
+        scannedAt: '2026-07-25T12:00:00.000Z',
+        storeName: 'Alpha Market',
+        source: 'gallery',
+        itemCount: 3,
+        skippedItems: [],
+        cacheHit: false,
+        status: 'completed',
+      },
+      {
+        id: 'beta-receipt',
+        scannedAt: '2026-07-24T12:00:00.000Z',
+        storeName: 'Beta Foods',
+        source: 'camera',
+        itemCount: 2,
+        skippedItems: [],
+        cacheHit: false,
+        status: 'completed',
+      },
+    ]);
+    render(<Scan />);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Receipt' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Receipt settings and scan history' }));
+    expect(await screen.findByText('Alpha Market')).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search saved receipts' }), {
+      target: { value: 'alpha' },
+    });
+
+    expect(screen.getByText('Alpha Market')).toBeInTheDocument();
+    expect(screen.queryByText('Beta Foods')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete receipt from Alpha Market' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm deletion of receipt from Alpha Market' }));
+
+    await waitFor(() => expect(screen.getByText('No saved receipts match that search.')).toBeInTheDocument());
+    expect(await db.receiptHistory.get('alpha-receipt')).toBeUndefined();
+    expect(await db.receiptHistory.get('beta-receipt')).toBeDefined();
   });
 });

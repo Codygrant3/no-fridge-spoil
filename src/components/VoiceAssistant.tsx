@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Mic, MicOff, X } from 'lucide-react';
 import { VoiceService, type VoiceCommand, type VoiceResponse } from '../services/voiceService';
 
@@ -7,12 +7,29 @@ interface VoiceAssistantProps {
     isEnabled?: boolean;
 }
 
+const LISTENING_BARS = [14, 26, 18, 30, 22];
+
 export function VoiceAssistant({ onCommand, isEnabled = true }: VoiceAssistantProps) {
     const [isListening, setIsListening] = useState(false);
     const [transcript, setTranscript] = useState('');
     const [response, setResponse] = useState('');
     const [showPopup, setShowPopup] = useState(false);
-    const [voiceService, setVoiceService] = useState<VoiceService | null>(null);
+    const voiceServiceRef = useRef<VoiceService | null>(null);
+    const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const clearHideTimeout = useCallback(() => {
+        if (!hideTimeoutRef.current) return;
+        clearTimeout(hideTimeoutRef.current);
+        hideTimeoutRef.current = null;
+    }, []);
+
+    const closePopup = useCallback(() => {
+        clearHideTimeout();
+        voiceServiceRef.current?.stopListening();
+        setShowPopup(false);
+        setTranscript('');
+        setResponse('');
+    }, [clearHideTimeout]);
 
     useEffect(() => {
         const service = new VoiceService({
@@ -21,40 +38,62 @@ export function VoiceAssistant({ onCommand, isEnabled = true }: VoiceAssistantPr
                 setShowPopup(true);
             },
             onResponse: (res: VoiceResponse) => {
+                clearHideTimeout();
                 setResponse(res.spokenResponse);
                 onCommand?.(res.command, res.parameters);
 
                 // Auto-hide popup after response
-                setTimeout(() => {
+                hideTimeoutRef.current = setTimeout(() => {
                     setShowPopup(false);
                     setTranscript('');
                     setResponse('');
+                    hideTimeoutRef.current = null;
                 }, 3000);
             },
             onListeningChange: setIsListening,
-            onError: (error) => {
-                console.error('Voice error:', error);
-                setShowPopup(false);
+            onError: () => {
+                clearHideTimeout();
+                setResponse('Voice input is unavailable. Check microphone access and try again.');
+                setShowPopup(true);
+                hideTimeoutRef.current = setTimeout(() => {
+                    setShowPopup(false);
+                    setResponse('');
+                    hideTimeoutRef.current = null;
+                }, 5000);
             },
         });
 
-        setVoiceService(service);
+        voiceServiceRef.current = service;
 
         return () => {
+            clearHideTimeout();
             service.destroy();
+            voiceServiceRef.current = null;
         };
-    }, [onCommand]);
+    }, [clearHideTimeout, onCommand]);
+
+    useEffect(() => {
+        if (!showPopup) return;
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') closePopup();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [closePopup, showPopup]);
 
     const toggleListening = useCallback(() => {
+        const voiceService = voiceServiceRef.current;
         if (!voiceService) return;
 
         if (isListening) {
             voiceService.stopListening();
         } else {
+            clearHideTimeout();
+            setResponse('');
             voiceService.startListening();
             setShowPopup(true);
         }
-    }, [voiceService, isListening]);
+    }, [clearHideTimeout, isListening]);
 
     if (!isEnabled) return null;
 
@@ -78,7 +117,11 @@ export function VoiceAssistant({ onCommand, isEnabled = true }: VoiceAssistantPr
 
             {/* Voice Popup */}
             {showPopup && (
-                <div className="fixed inset-x-4 bottom-52 glass-thin border border-[var(--border-color)] rounded-3xl p-4 z-50 shadow-xl">
+                <div
+                    className="fixed inset-x-4 bottom-52 glass-thin border border-[var(--border-color)] rounded-3xl p-4 z-50 shadow-xl"
+                    role="status"
+                    aria-live="polite"
+                >
                     <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-2">
                             {isListening && (
@@ -89,11 +132,9 @@ export function VoiceAssistant({ onCommand, isEnabled = true }: VoiceAssistantPr
                             </span>
                         </div>
                         <button
-                            onClick={() => {
-                                setShowPopup(false);
-                                voiceService?.stopListening();
-                            }}
+                            onClick={closePopup}
                             className="p-1 hover:bg-white/10 rounded-lg"
+                            aria-label="Close voice assistant"
                         >
                             <X className="w-4 h-4 text-[var(--text-muted)]" />
                         </button>
@@ -114,7 +155,7 @@ export function VoiceAssistant({ onCommand, isEnabled = true }: VoiceAssistantPr
                                     key={i}
                                     className="w-1 bg-[var(--accent-color)] rounded-full animate-pulse"
                                     style={{
-                                        height: `${Math.random() * 20 + 10}px`,
+                                        height: `${LISTENING_BARS[i]}px`,
                                         animationDelay: `${i * 0.1}s`,
                                     }}
                                 />

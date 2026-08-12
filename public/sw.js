@@ -1,86 +1,96 @@
-const CACHE_NAME = 'no-fridge-spoil-v2';
+const CACHE_NAME = 'no-fridge-spoil-v7';
 const URLS_TO_CACHE = [
     '/',
     '/index.html',
     '/manifest.json'
 ];
 
-// Install — cache shell files
+const workerUrl = new URL(self.location.href);
+const localHosts = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
+const isLocalDev = localHosts.has(self.location.hostname)
+    && workerUrl.searchParams.get('production') !== '1';
+
 self.addEventListener('install', (event) => {
+    if (isLocalDev) {
+        self.skipWaiting();
+        return;
+    }
+
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then((cache) => cache.addAll(URLS_TO_CACHE))
     );
-    self.skipWaiting();
 });
 
-// Activate — clean old caches
+self.addEventListener('message', (event) => {
+    if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
 self.addEventListener('activate', (event) => {
     event.waitUntil(
-        caches.keys().then((cacheNames) => {
-            return Promise.all(
+        caches.keys()
+            .then((cacheNames) => Promise.all(
                 cacheNames
-                    .filter((name) => name !== CACHE_NAME)
+                    .filter((name) => name.startsWith('no-fridge-spoil-') && name !== CACHE_NAME)
                     .map((name) => caches.delete(name))
-            );
-        })
+            ))
+            .then(() => {
+                if (isLocalDev) return self.registration.unregister();
+                return undefined;
+            })
+            .then(() => self.clients.claim())
     );
-    self.clients.claim();
 });
 
-// Fetch — network-first with cache fallback for navigation
 self.addEventListener('fetch', (event) => {
-    // Skip non-GET and cross-origin requests
+    if (isLocalDev) return;
     if (event.request.method !== 'GET') return;
     if (!event.request.url.startsWith(self.location.origin)) return;
 
-    // Skip API calls (Gemini, Google TTS)
-    if (event.request.url.includes('generativelanguage.googleapis.com')) return;
-    if (event.request.url.includes('texttospeech.googleapis.com')) return;
+    const requestUrl = new URL(event.request.url);
+    if (requestUrl.pathname.startsWith('/api/')) return;
 
     event.respondWith(
         fetch(event.request)
             .then((response) => {
-                // Clone and cache successful responses
                 if (response.ok) {
                     const clone = response.clone();
                     caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
                 }
                 return response;
             })
-            .catch(() => {
-                // Fallback to cache when offline
-                return caches.match(event.request).then((cached) => {
-                    if (cached) return cached;
-                    // For navigation requests, return the shell
-                    if (event.request.mode === 'navigate') {
-                        return caches.match('/index.html');
-                    }
-                    return new Response('Offline', { status: 503 });
-                });
-            })
+            .catch(() => caches.match(event.request).then((cached) => {
+                if (cached) return cached;
+                if (event.request.mode === 'navigate') {
+                    return caches.match('/index.html');
+                }
+                return new Response('Offline', { status: 503 });
+            }))
     );
 });
 
-// Handle notification clicks — navigate to alerts tab
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
     const action = event.notification.data?.action;
+    const clickedAction = event.action;
+    const itemId = event.notification.data?.itemIds?.[0];
 
     event.waitUntil(
         self.clients.matchAll({ type: 'window' }).then((clientList) => {
-            // Focus existing window and send navigation message
             for (const client of clientList) {
                 if ('focus' in client) {
                     client.focus();
-                    if (action === 'navigate-alerts') {
+                    if (clickedAction && itemId) {
+                        client.postMessage({ type: 'ALERT_ACTION', action: clickedAction, itemId });
+                    } else if (action === 'navigate-alerts') {
                         client.postMessage({ type: 'NAVIGATE_TO', tab: 'alerts' });
                     }
                     return;
                 }
             }
-            // Open new window if none exist
-            if (self.clients.openWindow) return self.clients.openWindow('/');
+
+            if (self.clients.openWindow) return self.clients.openWindow('/#/alerts');
+            return undefined;
         })
     );
 });

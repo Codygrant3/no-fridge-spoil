@@ -1,184 +1,291 @@
-import { useMemo } from 'react';
-import { ChevronLeft, Settings, CheckCircle, ShoppingCart, ChefHat } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+    Bell,
+    CalendarBlank,
+    CheckCircle,
+    ClockCounterClockwise,
+    Gear,
+    Package,
+    ShoppingCartSimple,
+    Snowflake,
+    Trash,
+    X,
+} from '@phosphor-icons/react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import type { TabType } from '../components/BottomNav';
 import { useInventory } from '../context/InventoryContext';
+import { db, type DbSettings } from '../db/database';
+import { NotificationService } from '../services/notificationService';
+import { startScheduler } from '../services/notificationScheduler';
+import { addInventoryItemToShoppingList } from '../services/shoppingActionService';
+import { clearExpiredAlertSnoozes, isItemAlertSnoozed, snoozeItemAlert } from '../services/alertActionService';
+import { daysUntilExpiration } from '../utils/dateUtils';
 
-// Category emoji mapping
-const getItemEmoji = (name: string): string => {
-    const nameLower = name.toLowerCase();
-    if (nameLower.includes('milk')) return '🥛';
-    if (nameLower.includes('spinach') || nameLower.includes('lettuce')) return '🥬';
-    if (nameLower.includes('egg')) return '🥚';
-    if (nameLower.includes('yogurt')) return '🥛';
-    if (nameLower.includes('chicken')) return '🍗';
-    if (nameLower.includes('cheese')) return '🧀';
-    if (nameLower.includes('bread')) return '🍞';
-    if (nameLower.includes('apple')) return '🍎';
-    if (nameLower.includes('banana')) return '🍌';
-    return '🍽️';
-};
+interface AlertsProps {
+    onNavigate?: (tab: TabType) => void;
+}
 
-export function Alerts() {
-    const { items } = useInventory();
-    const now = Date.now();
+const foodImages: Array<{ terms: string[]; src: string }> = [
+    { terms: ['yogurt', 'yoghurt'], src: '/market/greek-yogurt.webp' },
+    { terms: ['spinach'], src: '/market/baby-spinach.webp' },
+    { terms: ['salmon'], src: '/market/salmon-fillet.webp' },
+];
 
-    // Calculate days until expiration
-    const getDaysUntil = (dateStr: string): number => {
-        const diff = new Date(dateStr).getTime() - now;
-        return Math.ceil(diff / (1000 * 60 * 60 * 24));
+function getFoodImage(name: string): string | undefined {
+    const normalizedName = name.toLowerCase();
+    return foodImages.find(({ terms }) => terms.some(term => normalizedName.includes(term)))?.src;
+}
+
+export function Alerts({ onNavigate }: AlertsProps) {
+    const { items, consumeItem, removeItem, updateItem } = useInventory();
+    const settings = useLiveQuery(() => db.settings.get('user'), [], undefined);
+    const [now, setNow] = useState(() => Date.now());
+    const [snoozeClock, setSnoozeClock] = useState(now);
+    const [showSettings, setShowSettings] = useState(false);
+    const [feedback, setFeedback] = useState<string | null>(null);
+    const warningDays = settings?.expirationWarningDays ?? 3;
+
+    const getDaysUntil = useCallback((dateString: string): number => {
+        return daysUntilExpiration(dateString, new Date(now));
+    }, [now]);
+
+    useEffect(() => {
+        clearExpiredAlertSnoozes(Math.max(now, snoozeClock));
+    }, [now, snoozeClock]);
+
+    useEffect(() => {
+        const refreshClock = () => setNow(Date.now());
+        const interval = window.setInterval(refreshClock, 60_000);
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') refreshClock();
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => {
+            window.clearInterval(interval);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, []);
+
+    const expiringItems = useMemo(() => {
+        const effectiveNow = Math.max(now, snoozeClock);
+        return items
+            .filter(item => getDaysUntil(item.expirationDate) <= warningDays && !isItemAlertSnoozed(item.id, effectiveNow))
+            .sort((first, second) => getDaysUntil(first.expirationDate) - getDaysUntil(second.expirationDate));
+    }, [getDaysUntil, items, now, snoozeClock, warningDays]);
+
+    const lowStockItems = useMemo(() => items.filter(item => item.quantity <= 2), [items]);
+    const attentionCount = new Set([...expiringItems, ...lowStockItems].map(item => item.id)).size;
+    const allCaughtUp = attentionCount === 0;
+
+    const freezeItem = async (id: string, name: string) => {
+        const frozenUntil = new Date();
+        frozenUntil.setDate(frozenUntil.getDate() + 30);
+        await updateItem(id, {
+            storageLocation: 'freezer',
+            expirationDate: frozenUntil.toISOString().split('T')[0],
+        });
+        setFeedback(`${name} moved to the freezer for 30 days.`);
     };
 
-    // Expiring soon items (within 3 days)
-    const expiringItems = useMemo(() => {
-        return items
-            .filter(item => {
-                const days = getDaysUntil(item.expirationDate);
-                return days >= 0 && days <= 3;
-            })
-            .sort((a, b) => getDaysUntil(a.expirationDate) - getDaysUntil(b.expirationDate));
-    }, [items, now]);
+    const snoozeItem = (id: string, name: string) => {
+        snoozeItemAlert(id, 24);
+        setSnoozeClock(Date.now());
+        setFeedback(`${name} snoozed until tomorrow.`);
+    };
 
-    // Low stock items (quantity <= 2)
-    const lowStockItems = useMemo(() => {
-        return items.filter(item => item.quantity <= 2);
-    }, [items]);
+    const addToShopping = async (item: (typeof items)[number]) => {
+        const result = await addInventoryItemToShoppingList(item);
+        setFeedback(result === 'added' ? `${item.name} added to the shopping list.` : `${item.name} is already on the shopping list.`);
+    };
 
-    const allCaughtUp = expiringItems.length === 0 && lowStockItems.length === 0;
+    const addExpirationToCalendar = (item: (typeof items)[number]) => {
+        const created = NotificationService.addToCalendar(item);
+        setFeedback(created
+            ? `${item.name} expiration reminder downloaded.`
+            : `${item.name} needs a valid expiration date before a reminder can be created.`);
+    };
+
+    const updateSettings = async (updates: Partial<DbSettings>) => {
+        await db.settings.update('user', updates);
+        await startScheduler();
+    };
+
+    const enableNotifications = async () => {
+        const granted = await NotificationService.requestPermission();
+        if (!granted) {
+            setFeedback('Browser notifications are blocked. In-app alerts remain available.');
+            return;
+        }
+        await updateSettings({ notificationsEnabled: true, notificationFrequency: settings?.notificationFrequency ?? 'daily' });
+        setFeedback('Daily freshness reminders enabled.');
+    };
 
     return (
-        <div className="min-h-full bg-[#0a1f0f] flex flex-col pb-24">
-            {/* Header */}
-            <header className="flex items-center justify-between p-4 pt-12">
-                <button className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--bg-tertiary)]/50">
-                    <ChevronLeft className="w-6 h-6 text-white" />
-                </button>
-                <div className="flex-1" />
-                <button className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--bg-tertiary)]/50">
-                    <Settings className="w-5 h-5 text-white" />
+        <div className="editorial-page alerts-page">
+            <header className="editorial-page-header">
+                <div>
+                    <p className="editorial-kicker">Kitchen watch</p>
+                    <h1>Alerts</h1>
+                </div>
+                <button
+                    type="button"
+                    className="market-icon-button editorial-header-action"
+                    aria-label={showSettings ? 'Close alert settings' : 'Open alert settings'}
+                    onClick={() => setShowSettings(value => !value)}
+                >
+                    {showSettings ? <X size={22} /> : <Gear size={22} />}
                 </button>
             </header>
 
-            <div className="px-4">
-                <h1 className="text-white text-3xl font-bold mb-6">Alerts</h1>
+            {feedback && (
+                <div className="editorial-toast" role="status">
+                    <span>{feedback}</span>
+                    <button type="button" onClick={() => setFeedback(null)} aria-label="Dismiss alert message"><X size={16} /></button>
+                </div>
+            )}
 
-                {/* Expiring Soon Section */}
-                {expiringItems.length > 0 && (
-                    <section className="mb-8">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-white text-lg font-semibold">Expiring Soon</h2>
-                            <span className="px-3 py-1 bg-red-500/20 text-red-400 text-xs font-bold rounded-full uppercase">
-                                Urgent
-                            </span>
-                        </div>
-
-                        <div className="space-y-3">
-                            {expiringItems.map((item) => {
-                                const days = getDaysUntil(item.expirationDate);
-                                const isToday = days === 0;
-
-                                return (
-                                    <div
-                                        key={item.id}
-                                        className="bg-[#1a2f1f] rounded-3xl p-4 border border-green-900/30"
-                                    >
-                                        <div className="flex items-start gap-4">
-                                            {/* Image */}
-                                            <div className="w-16 h-16 bg-gray-700 rounded-xl flex items-center justify-center overflow-hidden">
-                                                <span className="text-3xl">{getItemEmoji(item.name)}</span>
-                                            </div>
-
-                                            {/* Content */}
-                                            <div className="flex-1">
-                                                <p className={`text-xs font-bold uppercase tracking-wide ${isToday ? 'text-red-400' : 'text-orange-400'
-                                                    }`}>
-                                                    {isToday ? '● EXPIRES TODAY' : `● EXPIRES IN ${days} DAYS`}
-                                                </p>
-                                                <h3 className="text-white text-lg font-semibold mt-1">
-                                                    {item.name}
-                                                </h3>
-                                                <p className="text-[var(--text-muted)] text-sm">
-                                                    {item.quantity} {item.quantity > 1 ? 'items' : 'item'} remaining
-                                                </p>
-
-                                                {/* Action Buttons */}
-                                                <div className="flex gap-2 mt-3">
-                                                    {isToday ? (
-                                                        <button className="px-4 py-2 bg-emerald-500/20 text-emerald-400 text-sm font-semibold rounded-lg flex items-center gap-2">
-                                                            <CheckCircle className="w-4 h-4" />
-                                                            Use Now
-                                                        </button>
-                                                    ) : (
-                                                        <button className="px-4 py-2 bg-emerald-500/20 text-emerald-400 text-sm font-semibold rounded-lg flex items-center gap-2">
-                                                            <ChefHat className="w-4 h-4" />
-                                                            View Recipes
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </section>
-                )}
-
-                {/* Low Stock Section */}
-                {lowStockItems.length > 0 && (
-                    <section className="mb-8">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-white text-lg font-semibold">Low Stock</h2>
-                            <span className="px-3 py-1 bg-blue-500/20 text-blue-400 text-xs font-bold rounded-full uppercase">
-                                Inventory
-                            </span>
-                        </div>
-
-                        <div className="space-y-3">
-                            {lowStockItems.map((item) => (
-                                <div
-                                    key={item.id}
-                                    className="bg-[#1a2f1f] rounded-3xl p-4 border border-green-900/30"
-                                >
-                                    <div className="flex items-start gap-4">
-                                        {/* Image */}
-                                        <div className="w-16 h-16 bg-gray-700 rounded-xl flex items-center justify-center overflow-hidden">
-                                            <span className="text-3xl">{getItemEmoji(item.name)}</span>
-                                        </div>
-
-                                        {/* Content */}
-                                        <div className="flex-1">
-                                            <p className="text-red-400 text-xs font-bold uppercase tracking-wide">
-                                                ONLY {item.quantity} LEFT
-                                            </p>
-                                            <h3 className="text-white text-lg font-semibold mt-1">
-                                                {item.name}
-                                            </h3>
-                                            <p className="text-[var(--text-muted)] text-sm">
-                                                Minimum stock: 6
-                                            </p>
-
-                                            {/* Action Button */}
-                                            <button className="mt-3 px-4 py-2 bg-emerald-500/20 text-emerald-400 text-sm font-semibold rounded-lg flex items-center gap-2">
-                                                <ShoppingCart className="w-4 h-4" />
-                                                Add to List
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </section>
-                )}
-
-                {/* All Caught Up */}
-                {allCaughtUp && (
-                    <div className="flex flex-col items-center justify-center py-16">
-                        <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mb-4">
-                            <CheckCircle className="w-8 h-8 text-emerald-400" />
-                        </div>
-                        <p className="text-[var(--text-muted)]">All caught up!</p>
+            {showSettings && settings && (
+                <section className="alert-settings" aria-labelledby="alert-settings-heading">
+                    <div className="editorial-section-heading">
+                        <h2 id="alert-settings-heading">Reminder settings</h2>
+                        <span>{settings.notificationsEnabled ? 'On' : 'In-app only'}</span>
                     </div>
-                )}
-            </div>
+                    <div className="alert-settings-grid">
+                        <label>
+                            <span>Warning window</span>
+                            <select value={warningDays} onChange={event => void updateSettings({ expirationWarningDays: Number(event.target.value) })}>
+                                {[1, 2, 3, 5, 7, 14].map(days => <option key={days} value={days}>{days} days</option>)}
+                            </select>
+                        </label>
+                        <label>
+                            <span>Frequency</span>
+                            <select
+                                value={settings.notificationFrequency ?? 'daily'}
+                                onChange={event => void updateSettings({ notificationFrequency: event.target.value as DbSettings['notificationFrequency'] })}
+                            >
+                                <option value="off">Off</option>
+                                <option value="daily">Daily</option>
+                                <option value="twice">Twice daily</option>
+                                <option value="realtime">Every 2 hours</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span>Quiet from</span>
+                            <input type="time" value={settings.quietHoursStart ?? '21:00'} onChange={event => void updateSettings({ quietHoursStart: event.target.value })} />
+                        </label>
+                        <label>
+                            <span>Quiet until</span>
+                            <input type="time" value={settings.quietHoursEnd ?? '07:00'} onChange={event => void updateSettings({ quietHoursEnd: event.target.value })} />
+                        </label>
+                    </div>
+                    {!settings.notificationsEnabled ? (
+                        <button type="button" className="settings-command" onClick={() => void enableNotifications()}>
+                            <Bell size={18} /> Enable browser reminders
+                        </button>
+                    ) : (
+                        <button type="button" className="settings-command is-secondary" onClick={() => void updateSettings({ notificationsEnabled: false })}>
+                            Pause browser reminders
+                        </button>
+                    )}
+                    <button type="button" className="alert-settings-link" onClick={() => onNavigate?.('profile')}>Account and data settings</button>
+                </section>
+            )}
+
+            <section className="editorial-summary-band" aria-label="Alert summary">
+                <Bell size={25} weight="duotone" />
+                <div>
+                    <strong>{allCaughtUp ? 'Your kitchen is calm' : `${attentionCount} item${attentionCount === 1 ? '' : 's'} need attention`}</strong>
+                    <span>{allCaughtUp ? 'Nothing is expiring or running low.' : 'Prioritized by what needs action first.'}</span>
+                </div>
+            </section>
+
+            {expiringItems.length > 0 && (
+                <section className="editorial-section" aria-labelledby="expiring-heading">
+                    <div className="editorial-section-heading">
+                        <h2 id="expiring-heading">Use or save</h2>
+                        <span className="editorial-count is-urgent">{expiringItems.length}</span>
+                    </div>
+                    <div className="editorial-list">
+                        {expiringItems.map(item => {
+                            const days = getDaysUntil(item.expirationDate);
+                            const image = getFoodImage(item.name);
+                            const timing = days < 0
+                                ? `Expired ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} ago`
+                                : days === 0
+                                    ? 'Expires today'
+                                    : `Expires in ${days} day${days === 1 ? '' : 's'}`;
+                            return (
+                                <article key={item.id} className="editorial-list-row alert-item-row">
+                                    <span className="editorial-thumb">
+                                        {image ? <img src={image} alt="" loading="lazy" decoding="async" /> : <Package size={24} weight="duotone" />}
+                                    </span>
+                                    <div className="editorial-row-copy">
+                                        <span className="editorial-row-status is-urgent">{timing}</span>
+                                        <strong>{item.name}</strong>
+                                        <small>{item.quantity} {item.quantity === 1 ? 'item' : 'items'} remaining</small>
+                                    </div>
+                                    <div className="alert-item-actions">
+                                        <button type="button" onClick={() => void (days < 0 ? removeItem(item.id) : consumeItem(item.id))}>
+                                            {days < 0 ? <Trash size={16} /> : <CheckCircle size={16} />}
+                                            {days < 0 ? 'Toss' : 'Used'}
+                                        </button>
+                                        {days >= 0 && item.storageLocation === 'fridge' && (
+                                            <button type="button" onClick={() => void freezeItem(item.id, item.name)}>
+                                                <Snowflake size={16} /> Freeze
+                                            </button>
+                                        )}
+                                        <button type="button" onClick={() => snoozeItem(item.id, item.name)}>
+                                            <ClockCounterClockwise size={16} /> Snooze
+                                        </button>
+                                        {days >= 0 && (
+                                            <button type="button" onClick={() => addExpirationToCalendar(item)}>
+                                                <CalendarBlank size={16} /> Calendar
+                                            </button>
+                                        )}
+                                    </div>
+                                </article>
+                            );
+                        })}
+                    </div>
+                </section>
+            )}
+
+            {lowStockItems.length > 0 && (
+                <section className="editorial-section" aria-labelledby="low-stock-heading">
+                    <div className="editorial-section-heading">
+                        <h2 id="low-stock-heading">Running low</h2>
+                        <span className="editorial-count">{lowStockItems.length}</span>
+                    </div>
+                    <div className="editorial-list">
+                        {lowStockItems.map(item => {
+                            const image = getFoodImage(item.name);
+                            return (
+                                <article key={item.id} className="editorial-list-row">
+                                    <span className="editorial-thumb">
+                                        {image ? <img src={image} alt="" loading="lazy" decoding="async" /> : <Package size={24} weight="duotone" />}
+                                    </span>
+                                    <span className="editorial-row-copy">
+                                        <span className="editorial-row-status is-warning">Only {item.quantity} left</span>
+                                        <strong>{item.name}</strong>
+                                        <small>Add it before the next market run</small>
+                                    </span>
+                                    <button type="button" className="editorial-inline-action" onClick={() => void addToShopping(item)}>
+                                        <ShoppingCartSimple size={18} /> Add
+                                    </button>
+                                </article>
+                            );
+                        })}
+                    </div>
+                </section>
+            )}
+
+            {allCaughtUp && (
+                <div className="editorial-empty-state">
+                    <CheckCircle size={38} weight="duotone" />
+                    <h2>All caught up</h2>
+                    <p>Your next freshness alert will appear here.</p>
+                </div>
+            )}
         </div>
     );
 }

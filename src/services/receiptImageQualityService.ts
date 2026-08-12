@@ -1,5 +1,5 @@
 export interface ReceiptImageQualityIssue {
-    code: 'too-small' | 'large-file' | 'unsupported-type' | 'likely-screenshot' | 'low-light' | 'wide-crop' | 'possible-blur';
+    code: 'too-small' | 'large-file' | 'unsupported-type' | 'unreadable-image' | 'likely-screenshot' | 'low-light' | 'wide-crop' | 'possible-blur';
     message: string;
 }
 
@@ -27,7 +27,14 @@ export async function checkReceiptImageQuality(file: File): Promise<ReceiptImage
         issues.push({ code: 'likely-screenshot', message: 'Screenshots can work, but a direct receipt photo is usually clearer.' });
     }
 
-    const image = await loadImage(file).catch(() => null);
+    let image: HTMLImageElement | null = null;
+    if (file.type.startsWith('image/')) {
+        try {
+            image = await loadImage(file);
+        } catch {
+            issues.push({ code: 'unreadable-image', message: 'This image could not be read. Choose another receipt photo.' });
+        }
+    }
     if (image) {
         if (image.width < 700 || image.height < 900) {
             issues.push({ code: 'too-small', message: 'Receipt image resolution is low; use a closer, sharper photo if OCR misses lines.' });
@@ -47,7 +54,11 @@ export async function checkReceiptImageQuality(file: File): Promise<ReceiptImage
     }
 
     return {
-        ok: !issues.some(issue => issue.code === 'unsupported-type' || issue.code === 'too-small'),
+        ok: !issues.some(issue => (
+            issue.code === 'unsupported-type'
+            || issue.code === 'too-small'
+            || issue.code === 'unreadable-image'
+        )),
         issues,
     };
 }
@@ -56,20 +67,28 @@ function loadImage(file: File): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
         const url = URL.createObjectURL(file);
         const image = new Image();
-        const timeout = window.setTimeout(() => {
-            URL.revokeObjectURL(url);
-            reject(new Error('Receipt image metadata timed out'));
-        }, 200);
-        image.onload = () => {
+        let settled = false;
+        let timeout = 0;
+        const cleanup = () => {
             window.clearTimeout(timeout);
+            image.onload = null;
+            image.onerror = null;
             URL.revokeObjectURL(url);
+        };
+        const fail = (message: string) => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            reject(new Error(message));
+        };
+        timeout = window.setTimeout(() => fail('Receipt image metadata timed out'), 5_000);
+        image.onload = () => {
+            if (settled) return;
+            settled = true;
+            cleanup();
             resolve(image);
         };
-        image.onerror = () => {
-            window.clearTimeout(timeout);
-            URL.revokeObjectURL(url);
-            reject(new Error('Unable to read receipt image'));
-        };
+        image.onerror = () => fail('Unable to read receipt image');
         image.src = url;
     });
 }

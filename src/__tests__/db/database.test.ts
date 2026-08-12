@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { db, initializeDatabase, exportAllData, importData } from '../../db/database';
+import {
+  db,
+  initializeDatabase,
+  exportAllData,
+  importData,
+  inspectBackupData,
+} from '../../db/database';
 import type { DbInventoryItem } from '../../db/database';
 
 describe('database', () => {
@@ -11,6 +17,9 @@ describe('database', () => {
     await db.customTags.clear();
     await db.shoppingList.clear();
     await db.barcodeCache.clear();
+    await db.profiles.clear();
+    await db.mealPlans.clear();
+    await db.receiptHistory.clear();
   });
 
   afterEach(async () => {
@@ -305,7 +314,7 @@ describe('database', () => {
       const exported = await exportAllData();
       const data = JSON.parse(exported);
 
-      expect(data.version).toBe(1);
+      expect(data.version).toBe(3);
       expect(data.exportedAt).toBeDefined();
       expect(data.items).toHaveLength(1);
       expect(data.items[0].name).toBe('Export Item');
@@ -411,6 +420,119 @@ describe('database', () => {
 
       expect(result.success).toBe(true);
       expect(result.itemsImported).toBe(0);
+    });
+
+    it('restores all supported device tables from a version 3 backup', async () => {
+      const result = await importData(JSON.stringify({
+        version: 3,
+        items: [],
+        stats: {
+          id: 'global',
+          itemsSaved: 4,
+          itemsWasted: 1,
+          totalScans: 8,
+          co2SavedKg: 2,
+          waterSavedL: 10,
+          moneySaved: 12,
+          badges: [],
+          xp: 20,
+          level: 1,
+        },
+        settings: {
+          id: 'user',
+          theme: 'dark',
+          defaultStorageLocation: 'pantry',
+          expirationWarningDays: 5,
+          notificationsEnabled: false,
+        },
+        shoppingList: [{
+          id: 'shopping-1',
+          name: 'Backup Oats',
+          quantity: 1,
+          addedAt: '2026-07-25T12:00:00.000Z',
+          isChecked: false,
+          category: 'pantry',
+          profileId: 'profile-1',
+        }],
+        profiles: [{
+          id: 'profile-1',
+          name: 'Kitchen',
+          avatar: 'K',
+          color: '#1f6f4e',
+          createdAt: '2026-07-25T12:00:00.000Z',
+        }],
+        mealPlans: [{
+          id: 'meal-1',
+          weekStartDate: '2026-07-20',
+          meals: [{
+            day: 1,
+            slot: 'dinner',
+            recipeName: 'Bean bowls',
+            ingredients: ['Black beans'],
+          }],
+          createdAt: '2026-07-25T12:00:00.000Z',
+        }],
+        customTags: [{
+          id: 'counter',
+          name: 'Counter',
+          color: '#336699',
+        }],
+        receiptHistory: [{
+          id: 'history-1',
+          scannedAt: '2026-07-25T12:00:00.000Z',
+          source: 'gallery',
+          itemCount: 1,
+          skippedItems: [],
+          cacheHit: false,
+          status: 'completed',
+        }],
+      }));
+
+      expect(result.success).toBe(true);
+      expect(result.recordsImported).toBe(7);
+      expect((await db.shoppingList.get('shopping-1'))?.name).toBe('Backup Oats');
+      expect((await db.profiles.get('profile-1'))?.name).toBe('Kitchen');
+      expect((await db.mealPlans.get('meal-1'))?.meals[0].recipeName).toBe('Bean bowls');
+      expect((await db.customTags.get('counter'))?.name).toBe('Counter');
+      expect(await db.receiptHistory.get('history-1')).toBeDefined();
+      expect((await db.settings.get('user'))?.expirationWarningDays).toBe(5);
+    });
+
+    it('rejects backups from a newer unsupported version', async () => {
+      const result = await importData(JSON.stringify({ version: 99, items: [] }));
+
+      expect(result.success).toBe(false);
+      expect(result.recordsImported).toBe(0);
+      expect(result.errors[0]).toMatch(/newer than this app supports/i);
+    });
+  });
+
+  describe('inspectBackupData', () => {
+    it('summarizes recognized sections without writing to the database', () => {
+      const result = inspectBackupData(JSON.stringify({
+        version: 3,
+        exportedAt: '2026-07-25T12:00:00.000Z',
+        items: [{ id: 'one' }, { id: 'two' }],
+        shoppingList: [{ id: 'list-one' }],
+        settings: { id: 'user' },
+      }));
+
+      expect(result.success).toBe(true);
+      expect(result.totalRecords).toBe(4);
+      expect(result.version).toBe(3);
+      expect(result.sections).toContainEqual({ label: 'Inventory', count: 2 });
+      expect(result.sections).toContainEqual({ label: 'Settings', count: 1 });
+    });
+
+    it('rejects unrelated and unsupported backup files', () => {
+      expect(inspectBackupData(JSON.stringify({ hello: 'world' }))).toMatchObject({
+        success: false,
+        totalRecords: 0,
+      });
+      expect(inspectBackupData(JSON.stringify({ version: 99, items: [] }))).toMatchObject({
+        success: false,
+        version: 99,
+      });
     });
   });
 });

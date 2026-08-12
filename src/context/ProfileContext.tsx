@@ -1,8 +1,11 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback } from 'react';
 import { db } from '../db/database';
 import type { DbProfile } from '../db/database';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { generateUUID } from '../utils/uuid';
+import { useOptionalAuth } from './AuthContext';
+import { belongsToActiveHousehold, localMutationFields } from '../services/localMutationService';
+import { readLocalValue, removeLocalValue, writeLocalValue } from '../services/safeStorage';
 
 interface ProfileContextType {
     profiles: DbProfile[];
@@ -24,26 +27,33 @@ export const PROFILE_AVATARS = ['👤', '👩', '👨', '👧', '👦', '🧑‍
 export const PROFILE_COLORS = ['#4ade80', '#3b82f6', '#f59e0b', '#ef4444', '#a855f7', '#ec4899', '#06b6d4', '#f97316'];
 
 export function ProfileProvider({ children }: { children: React.ReactNode }) {
+    const auth = useOptionalAuth();
+    const configured = auth?.configured ?? false;
+    const activeHousehold = auth?.activeHousehold ?? null;
     const [activeProfileId, setActiveProfileId] = useState<string | null>(() => {
-        return localStorage.getItem(ACTIVE_PROFILE_KEY) || null;
+        return readLocalValue(ACTIVE_PROFILE_KEY) || null;
     });
 
     // Live query for all profiles
     const profiles = useLiveQuery(
-        () => db.profiles.orderBy('createdAt').toArray(),
-        [],
+        () => db.profiles.orderBy('createdAt').toArray().then(records => records.filter(profile => (
+            profile.isDeleted !== 1
+            && belongsToActiveHousehold(profile, configured, activeHousehold?.id ?? null)
+        ))),
+        [configured, activeHousehold?.id],
         []
     );
 
     const activeProfile = profiles.find(p => p.id === activeProfileId) || null;
-    const isHousehold = activeProfileId === null;
+    const resolvedActiveProfileId = activeProfile ? activeProfileId : null;
+    const isHousehold = resolvedActiveProfileId === null;
 
     const switchProfile = useCallback((profileId: string | null) => {
         setActiveProfileId(profileId);
         if (profileId) {
-            localStorage.setItem(ACTIVE_PROFILE_KEY, profileId);
+            writeLocalValue(ACTIVE_PROFILE_KEY, profileId);
         } else {
-            localStorage.removeItem(ACTIVE_PROFILE_KEY);
+            removeLocalValue(ACTIVE_PROFILE_KEY);
         }
     }, []);
 
@@ -54,13 +64,20 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             avatar,
             color,
             createdAt: new Date().toISOString(),
+            ...localMutationFields(),
+            isDeleted: 0,
         };
         await db.profiles.add(profile);
         return profile;
     }, []);
 
     const updateProfile = useCallback(async (id: string, updates: Partial<Omit<DbProfile, 'id' | 'createdAt'>>) => {
-        await db.profiles.update(id, updates);
+        const profile = await db.profiles.get(id);
+        if (!profile) return;
+        await db.profiles.update(id, {
+            ...updates,
+            ...localMutationFields(profile.cloudHouseholdId),
+        });
     }, []);
 
     const deleteProfile = useCallback(async (id: string) => {
@@ -68,23 +85,30 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         if (activeProfileId === id) {
             switchProfile(null);
         }
-        // Reassign items from this profile to Household (remove profileId)
-        await db.items.where('profileId').equals(id).modify({ profileId: undefined });
-        await db.shoppingList.where('profileId').equals(id).modify({ profileId: undefined });
-        await db.profiles.delete(id);
-    }, [activeProfileId, switchProfile]);
+        const profile = await db.profiles.get(id);
+        if (!profile) return;
+        const mutation = localMutationFields(profile.cloudHouseholdId);
 
-    // Validate active profile still exists
-    useEffect(() => {
-        if (activeProfileId && profiles.length > 0 && !profiles.find(p => p.id === activeProfileId)) {
-            switchProfile(null);
-        }
-    }, [activeProfileId, profiles, switchProfile]);
+        await db.transaction('rw', db.items, db.shoppingList, db.profiles, async () => {
+            await db.items.where('profileId').equals(id).modify(item => {
+                item.profileId = undefined;
+                Object.assign(item, localMutationFields(item.cloudHouseholdId));
+            });
+            await db.shoppingList.where('profileId').equals(id).modify(item => {
+                item.profileId = undefined;
+                Object.assign(item, localMutationFields(item.cloudHouseholdId));
+            });
+            await db.profiles.update(id, {
+                isDeleted: 1,
+                ...mutation,
+            });
+        });
+    }, [activeProfileId, switchProfile]);
 
     return (
         <ProfileContext.Provider value={{
             profiles,
-            activeProfileId,
+            activeProfileId: resolvedActiveProfileId,
             activeProfile,
             switchProfile,
             createProfile,

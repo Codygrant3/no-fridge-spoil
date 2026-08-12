@@ -1,20 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { X, Lightbulb } from 'lucide-react';
+import { readLocalValue, writeLocalValue } from '../services/safeStorage';
 
 export function CameraTips() {
-    const [isVisible, setIsVisible] = useState(false);
-
-    useEffect(() => {
-        // Show tips on first visit
-        const hasSeenTips = localStorage.getItem('hasSeenCameraTips');
-        if (!hasSeenTips) {
-            setIsVisible(true);
-        }
-    }, []);
+    const [isVisible, setIsVisible] = useState(() => !readLocalValue('hasSeenCameraTips'));
 
     const handleDismiss = () => {
         setIsVisible(false);
-        localStorage.setItem('hasSeenCameraTips', 'true');
+        writeLocalValue('hasSeenCameraTips', 'true');
     };
 
     if (!isVisible) return null;

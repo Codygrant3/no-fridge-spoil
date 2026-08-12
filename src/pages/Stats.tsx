@@ -1,211 +1,209 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState, type ComponentType } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import type { IconProps } from '@phosphor-icons/react';
+import {
+    CaretLeft,
+    CheckCircle,
+    CurrencyDollar,
+    Database,
+    Drop,
+    GlobeHemisphereWest,
+    Leaf,
+    Recycle,
+    SealCheck,
+    ShareNetwork,
+    ShieldCheck,
+    ShoppingCart,
+    Star,
+    Trash,
+    Trophy,
+} from '@phosphor-icons/react';
 import { db } from '../db/database';
-import { BADGES, getLevelFromXp, getLevelTitle, getLevelProgress, type Badge } from '../services/impactService';
-import { getCacheStats, clearAllCache } from '../services/aiCacheService';
-import { ChevronLeft, Share2, Leaf, Droplets, DollarSign, Database, Trash2 } from 'lucide-react';
+import { clearAllCache, getCacheStats } from '../services/aiCacheService';
+import { BADGES, getLevelFromXp, getLevelProgress, getLevelTitle, type Badge } from '../services/impactService';
+import { copyText } from '../utils/clipboard';
+import { useModalFocus } from '../hooks/useModalFocus';
 
-type TimeFilter = 'weekly' | 'monthly' | 'allTime';
+interface StatsProps {
+    onBack?: () => void;
+}
 
-export function Stats() {
-    const [timeFilter, setTimeFilter] = useState<TimeFilter>('monthly');
+const badgeIcons: Record<string, ComponentType<IconProps>> = {
+    'first-save': Leaf,
+    'waste-warrior': ShieldCheck,
+    'food-hero': SealCheck,
+    'planet-protector': GlobeHemisphereWest,
+    'planner-pro': ShoppingCart,
+    'zero-hero': CheckCircle,
+    'compost-king': Recycle,
+    'bulk-buyer': ShoppingCart,
+    'perfect-month': Star,
+    'carbon-cutter': Leaf,
+    'climate-champion': Trophy,
+    'earth-guardian': GlobeHemisphereWest,
+};
+
+function BadgeIcon({ badge, size = 25 }: { badge: Badge; size?: number }) {
+    const Icon = badgeIcons[badge.id] || SealCheck;
+    return <Icon size={size} weight="duotone" />;
+}
+
+export function Stats({ onBack }: StatsProps) {
     const [showBadgePopup, setShowBadgePopup] = useState<Badge | null>(null);
+    const badgeTriggerRef = useRef<HTMLButtonElement | null>(null);
+    const badgeCloseRef = useRef<HTMLButtonElement | null>(null);
     const [cacheStats, setCacheStats] = useState<Awaited<ReturnType<typeof getCacheStats>> | null>(null);
+    const [shareFeedback, setShareFeedback] = useState<string | null>(null);
 
-    // Load cache stats
     useEffect(() => {
-        getCacheStats().then(setCacheStats);
+        void getCacheStats().then(setCacheStats);
     }, []);
 
-    // Live query for extended stats with gamification
-    const extendedStats = useLiveQuery(() => db.stats.get('global'), [], null);
+    const badgeDialogRef = useRef<HTMLDivElement | null>(null);
+    useModalFocus(Boolean(showBadgePopup), badgeDialogRef, () => setShowBadgePopup(null), badgeCloseRef, badgeTriggerRef);
 
-    // Calculate XP and level
+    const extendedStats = useLiveQuery(() => db.stats.get('global'), [], null);
     const xp = extendedStats?.xp || 0;
     const level = getLevelFromXp(xp);
     const levelTitle = getLevelTitle(level);
     const levelProgress = getLevelProgress(xp);
-    const xpInCurrentLevel = xp - (level - 1) * 250;
+    const xpToNextLevel = Math.max(0, level * 250 - xp);
 
-    // Get all badges with unlock status
     const allBadges = BADGES.map(badge => ({
         ...badge,
         unlocked: extendedStats?.badges?.includes(badge.id) || false,
     }));
 
-    // Featured badges for display (first 6)
     const featuredBadges = allBadges.slice(0, 6);
 
+    const shareImpact = async () => {
+        const text = `I have saved $${(extendedStats?.moneySaved || 0).toFixed(2)} and prevented ${Math.round(extendedStats?.co2SavedKg || 0)} kg of CO2 with No Fridge Spoil.`;
+        if (navigator.share) {
+            try {
+                await navigator.share({ title: 'My No Fridge Spoil impact', text });
+                setShareFeedback('Impact shared.');
+                return;
+            } catch (error) {
+                if (error instanceof DOMException && error.name === 'AbortError') return;
+            }
+        }
+        const copied = await copyText(text);
+        if (copied) {
+            setShareFeedback('Impact summary copied.');
+        } else {
+            setShareFeedback('Impact summary could not be shared. Try again from a supported browser.');
+        }
+    };
+
     return (
-        <div className="min-h-full bg-[var(--bg-primary)] text-[var(--text-primary)] pb-32">
-            {/* Header */}
-            <header className="flex items-center justify-between p-4">
-                <button className="p-2 hover:bg-white/10 rounded-lg">
-                    <ChevronLeft className="w-6 h-6" />
+        <div className="editorial-page stats-page">
+            <header className="recipe-header">
+                <button type="button" className="market-icon-button editorial-header-action" onClick={onBack} aria-label="Back to home">
+                    <CaretLeft size={22} weight="bold" />
                 </button>
-                <h1 className="text-xl font-bold">Your Impact</h1>
-                <button className="p-2 hover:bg-white/10 rounded-lg">
-                    <Share2 className="w-5 h-5" />
+                <div>
+                    <p className="editorial-kicker">Waste prevented</p>
+                    <h1>Your impact</h1>
+                </div>
+                <button type="button" className="market-icon-button editorial-header-action" onClick={() => void shareImpact()} aria-label="Share your impact">
+                    <ShareNetwork size={21} />
                 </button>
             </header>
 
-            <div className="px-4 space-y-6">
-                {/* Level Progress */}
-                <section>
-                    <div className="flex items-center justify-between mb-2">
-                        <h2 className="text-lg font-semibold">Level {level}: {levelTitle}</h2>
-                        <span className="text-emerald-400 font-bold">{xp.toLocaleString()} XP</span>
-                    </div>
-                    <div className="h-2 bg-[var(--bg-tertiary)] rounded-full overflow-hidden mb-1">
-                        <div
-                            className="h-full bg-gradient-to-r from-green-500 to-emerald-400 rounded-full transition-all"
-                            style={{ width: `${levelProgress}%` }}
-                        />
-                    </div>
-                    <p className="text-xs text-[var(--text-muted)]">{xpInCurrentLevel} XP TO LEVEL {level + 1}</p>
-                </section>
+            {shareFeedback && <p className="impact-share-feedback" role="status">{shareFeedback}</p>}
 
-                {/* Time Filter Toggle */}
-                <div className="flex glass-thin rounded-xl p-1">
-                    {(['weekly', 'monthly', 'allTime'] as const).map((filter) => (
+            <section className="impact-level" aria-label={`Level ${level}, ${levelTitle}`}>
+                <div className="impact-level-copy">
+                    <span>Level {level}</span>
+                    <strong>{levelTitle}</strong>
+                    <small>{xpToNextLevel} XP to level {level + 1}</small>
+                </div>
+                <div className="impact-xp"><strong>{xp.toLocaleString()}</strong><span>XP</span></div>
+                <div className="editorial-progress-track"><div style={{ width: `${levelProgress}%` }} /></div>
+            </section>
+
+            <p className="impact-period-label">All-time estimates from items marked used</p>
+
+            <section className="impact-metrics" aria-label="Impact metrics">
+                <div className="impact-metric impact-metric-primary">
+                    <CurrencyDollar size={22} weight="duotone" />
+                    <span>Money saved</span>
+                    <strong>${(extendedStats?.moneySaved || 0).toFixed(2)}</strong>
+                </div>
+                <div className="impact-metric">
+                    <Leaf size={22} weight="duotone" />
+                    <span>CO2 reduced</span>
+                    <strong>{Math.round(extendedStats?.co2SavedKg || 0)} <small>kg</small></strong>
+                </div>
+                <div className="impact-metric">
+                    <Drop size={22} weight="duotone" />
+                    <span>Water saved</span>
+                    <strong>{((extendedStats?.waterSavedL || 0) / 1000).toFixed(1)} <small>k L</small></strong>
+                </div>
+            </section>
+
+            <section className="editorial-section" aria-labelledby="achievements-heading">
+                <div className="editorial-section-heading">
+                    <h2 id="achievements-heading">Achievements</h2>
+                    <span>{featuredBadges.filter(badge => badge.unlocked).length} unlocked</span>
+                </div>
+                <div className="achievement-grid">
+                    {featuredBadges.map(badge => (
                         <button
-                            key={filter}
-                            onClick={() => setTimeFilter(filter)}
-                            className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${timeFilter === filter
-                                ? 'bg-gray-700 text-white'
-                                : 'text-[var(--text-muted)] hover:text-white'
-                                }`}
+                            key={badge.id}
+                            type="button"
+                            className={badge.unlocked ? 'is-unlocked' : ''}
+                            onClick={event => {
+                                if (!badge.unlocked) return;
+                                badgeTriggerRef.current = event.currentTarget;
+                                setShowBadgePopup(badge);
+                            }}
+                            disabled={!badge.unlocked}
                         >
-                            {filter === 'allTime' ? 'All-Time' : filter.charAt(0).toUpperCase() + filter.slice(1)}
+                            <span><BadgeIcon badge={badge} /></span>
+                            <strong>{badge.name}</strong>
                         </button>
                     ))}
                 </div>
+            </section>
 
-                {/* Money Saved Card */}
-                <div className="bg-gradient-to-br from-[#1a2f23] to-[#1a1f2e] rounded-3xl p-5 border border-[var(--border-color)]">
-                    <div className="flex items-center gap-2 mb-2">
-                        <div className="w-8 h-8 bg-emerald-500/20 rounded-lg flex items-center justify-center">
-                            <DollarSign className="w-4 h-4 text-emerald-400" />
-                        </div>
-                        <span className="text-[var(--text-muted)] text-sm uppercase tracking-wide">Money Saved</span>
+            {cacheStats && cacheStats.totalEntries > 0 && (
+                <section className="editorial-section" aria-labelledby="cache-heading">
+                    <div className="editorial-section-heading">
+                        <h2 id="cache-heading">AI cache</h2>
+                        <button
+                            type="button"
+                            className="impact-clear-cache"
+                            onClick={async () => {
+                                await clearAllCache();
+                                setCacheStats(await getCacheStats());
+                            }}
+                        >
+                            <Trash size={15} />
+                            Clear
+                        </button>
                     </div>
-                    <div className="flex items-baseline gap-2">
-                        <span className="text-4xl font-bold">${(extendedStats?.moneySaved || 0).toFixed(2)}</span>
-                        <span className="text-emerald-400 text-sm">↑12%</span>
-                    </div>
-                </div>
-
-                {/* CO2 and Water Cards */}
-                <div className="grid grid-cols-2 gap-3">
-                    <div className="glass-thin rounded-3xl p-4 border border-[var(--border-color)]">
-                        <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center mb-3">
-                            <Leaf className="w-4 h-4 text-blue-400" />
-                        </div>
-                        <p className="text-[var(--text-muted)] text-xs uppercase tracking-wide mb-1">CO2 Reduced</p>
-                        <p className="text-2xl font-bold">{Math.round(extendedStats?.co2SavedKg || 0)} <span className="text-sm font-normal text-[var(--text-muted)]">kg</span></p>
-                    </div>
-                    <div className="glass-thin rounded-3xl p-4 border border-[var(--border-color)]">
-                        <div className="w-8 h-8 bg-cyan-500/20 rounded-lg flex items-center justify-center mb-3">
-                            <Droplets className="w-4 h-4 text-cyan-400" />
-                        </div>
-                        <p className="text-[var(--text-muted)] text-xs uppercase tracking-wide mb-1">Water Saved</p>
-                        <p className="text-2xl font-bold">{((extendedStats?.waterSavedL || 0) / 1000).toFixed(1)}<span className="text-sm font-normal text-[var(--text-muted)]">k L</span></p>
-                    </div>
-                </div>
-
-                {/* Eco-Achievements */}
-                <section>
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-lg font-semibold">Eco-Achievements</h2>
-                        <button className="text-emerald-400 text-sm font-medium">View All</button>
-                    </div>
-                    <div className="grid grid-cols-3 gap-3">
-                        {featuredBadges.map((badge) => (
-                            <button
-                                key={badge.id}
-                                onClick={() => badge.unlocked && setShowBadgePopup(badge)}
-                                className={`flex flex-col items-center p-4 rounded-3xl border transition-all ${badge.unlocked
-                                    ? 'glass-thin border-[var(--accent-color)]/50 hover:scale-105'
-                                    : 'glass-thin/50 border-[var(--border-color)] opacity-50'
-                                    }`}
-                            >
-                                <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-2 ${badge.unlocked
-                                    ? 'bg-emerald-500/20 border-2 border-[var(--accent-color)]'
-                                    : 'bg-[var(--bg-tertiary)]'
-                                    }`}>
-                                    <span className="text-2xl">{badge.icon}</span>
-                                </div>
-                                <span className="text-xs text-center text-[var(--text-secondary)]">{badge.name}</span>
-                            </button>
-                        ))}
+                    <div className="impact-cache-row">
+                        <Database size={22} weight="duotone" />
+                        <span><strong>{cacheStats.totalEntries}</strong><small>Cached</small></span>
+                        <span><strong>{cacheStats.totalHits}</strong><small>Hits</small></span>
+                        <span><strong>{(cacheStats.totalSizeBytes / 1024).toFixed(1)}</strong><small>KB used</small></span>
                     </div>
                 </section>
+            )}
 
-                {/* AI Cache Stats */}
-                {cacheStats && cacheStats.totalEntries > 0 && (
-                    <section>
-                        <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-2">
-                                <Database className="w-5 h-5 text-purple-400" />
-                                <h2 className="text-lg font-semibold">AI Cache</h2>
-                            </div>
-                            <button
-                                onClick={async () => {
-                                    await clearAllCache();
-                                    setCacheStats(await getCacheStats());
-                                }}
-                                className="flex items-center gap-1 text-red-400 text-sm font-medium hover:text-red-300"
-                            >
-                                <Trash2 className="w-3.5 h-3.5" /> Clear
-                            </button>
-                        </div>
-                        <div className="grid grid-cols-3 gap-3">
-                            <div className="glass-thin rounded-xl p-3 border border-[var(--border-color)] text-center">
-                                <p className="text-2xl font-bold text-purple-400">{cacheStats.totalEntries}</p>
-                                <p className="text-xs text-[var(--text-muted)] mt-1">Cached</p>
-                            </div>
-                            <div className="glass-thin rounded-xl p-3 border border-[var(--border-color)] text-center">
-                                <p className="text-2xl font-bold text-emerald-400">{cacheStats.totalHits}</p>
-                                <p className="text-xs text-[var(--text-muted)] mt-1">Cache Hits</p>
-                            </div>
-                            <div className="glass-thin rounded-xl p-3 border border-[var(--border-color)] text-center">
-                                <p className="text-2xl font-bold text-blue-400">{(cacheStats.totalSizeBytes / 1024).toFixed(1)}</p>
-                                <p className="text-xs text-[var(--text-muted)] mt-1">KB Used</p>
-                            </div>
-                        </div>
-                    </section>
-                )}
+            <p className="impact-note">
+                Estimated impact uses an average per saved item. Your recorded savings equal roughly{' '}
+                {Math.round((extendedStats?.co2SavedKg || 0) / 4)} tree-years of carbon absorption.
+            </p>
 
-                {/* Motivational Quote */}
-                <div className="bg-gradient-to-r from-green-900/30 to-emerald-900/30 rounded-3xl p-4 border border-[var(--border-color)]">
-                    <p className="text-emerald-300 text-sm italic text-center">
-                        "You've saved the equivalent of {Math.round((extendedStats?.co2SavedKg || 0) / 4)} trees this month!
-                        Keep it up, nature's best friend."
-                    </p>
-                </div>
-            </div>
-
-            {/* Badge Popup */}
             {showBadgePopup && (
-                <div
-                    className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
-                    onClick={() => setShowBadgePopup(null)}
-                >
-                    <div
-                        className="glass-thin p-8 rounded-3xl max-w-sm w-full text-center border border-[var(--border-color)]"
-                        onClick={e => e.stopPropagation()}
-                    >
-                        <div className="w-24 h-24 mx-auto bg-emerald-500/20 rounded-full flex items-center justify-center mb-4 border-2 border-[var(--accent-color)]">
-                            <span className="text-5xl">{showBadgePopup.icon}</span>
-                        </div>
-                        <h3 className="text-2xl font-bold mb-2">{showBadgePopup.name}</h3>
-                        <p className="text-[var(--text-muted)] mb-6">{showBadgePopup.description}</p>
-                        <button
-                            onClick={() => setShowBadgePopup(null)}
-                            className="px-8 py-3 bg-[var(--accent-color)] text-white rounded-xl font-semibold hover:bg-emerald-600 transition-colors"
-                        >
-                            Awesome!
-                        </button>
+                <div className="editorial-modal-backdrop" onClick={() => setShowBadgePopup(null)}>
+                    <div ref={badgeDialogRef} tabIndex={-1} className="achievement-dialog" role="dialog" aria-modal="true" aria-labelledby="badge-title" onClick={event => event.stopPropagation()}>
+                        <span className="achievement-dialog-icon"><BadgeIcon badge={showBadgePopup} size={42} /></span>
+                        <h2 id="badge-title">{showBadgePopup.name}</h2>
+                        <p>{showBadgePopup.description}</p>
+                        <button ref={badgeCloseRef} type="button" onClick={() => setShowBadgePopup(null)}>Close</button>
                     </div>
                 </div>
             )}

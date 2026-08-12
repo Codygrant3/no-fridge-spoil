@@ -66,7 +66,7 @@ export function EatThisTonightWidget({ expiringItems, onCookNow }: EatThisTonigh
                         <h2 className="font-display text-lg font-semibold text-[var(--text-primary)]">
                             Eat This Tonight
                         </h2>
-                        <p className="text-xs text-amber-400 font-medium">AI Recipe Suggestion</p>
+                        <p className="text-xs text-amber-400 font-medium">Inventory match</p>
                     </div>
                 </div>
                 <div className="flex items-center justify-center py-6">

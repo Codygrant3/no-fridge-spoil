@@ -4,6 +4,7 @@ import {
   formatDate,
   validateAndFormatDate,
   daysUntilExpiration,
+  isWithinExpirationWindow,
   calculateExpirationFromShelfLife,
 } from '../../utils/dateUtils';
 
@@ -131,7 +132,7 @@ describe('dateUtils', () => {
     });
   });
 
-  describe('daysUntilExpiration', () => {
+describe('daysUntilExpiration', () => {
     beforeEach(() => {
       // Mock the current date to January 22, 2026
       vi.useFakeTimers();
@@ -196,6 +197,13 @@ describe('dateUtils', () => {
       expect(mar1).toBeGreaterThanOrEqual(1);
       expect(mar1).toBeLessThanOrEqual(2);
     });
+
+    it('uses a supplied local reference date and rejects impossible dates', () => {
+      const lateEvening = new Date(2026, 6, 25, 23, 55);
+      expect(daysUntilExpiration('2026-07-25', lateEvening)).toBe(0);
+      expect(daysUntilExpiration('2026-07-26', lateEvening)).toBe(1);
+      expect(daysUntilExpiration('2026-02-30', lateEvening)).toBe(Number.POSITIVE_INFINITY);
+    });
   });
 
   describe('calculateExpirationFromShelfLife', () => {
@@ -239,5 +247,14 @@ describe('dateUtils', () => {
       expect(calculateExpirationFromShelfLife(2)).toBe('2024-02-29');
       expect(calculateExpirationFromShelfLife(3)).toBe('2024-03-01');
     });
+  });
+});
+
+describe('isWithinExpirationWindow', () => {
+  it('uses local calendar dates and rejects invalid expiration values', () => {
+    const lateEvening = new Date(2026, 6, 25, 23, 30);
+    expect(isWithinExpirationWindow('2026-07-28', 3, lateEvening)).toBe(true);
+    expect(isWithinExpirationWindow('2026-07-29', 3, lateEvening)).toBe(false);
+    expect(isWithinExpirationWindow('not-a-date', 3, lateEvening)).toBe(false);
   });
 });

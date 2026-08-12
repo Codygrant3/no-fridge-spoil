@@ -1,105 +1,123 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Bell, Check, Gauge, Scan, X } from '@phosphor-icons/react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../db/database';
+import { NotificationService } from '../services/notificationService';
+import { startScheduler } from '../services/notificationScheduler';
+import { readLocalValue, writeLocalValue } from '../services/safeStorage';
 
-const steps = [
-    {
-        image: '/onboarding/step1.png',
-        title: 'Shop for Groceries',
-        description: 'Pick up your favorite foods at the store',
-    },
-    {
-        image: '/onboarding/step2.png',
-        title: 'Head Home',
-        description: 'Load up and bring your groceries home',
-    },
-    {
-        image: '/onboarding/step3.png',
-        title: 'Scan & Store',
-        description: 'Scan expiration dates as you stock up!',
-    },
-];
+const DISMISSED_KEY = 'no-fridge-spoil:activation-dismissed';
+const EXPIRY_SET_KEY = 'no-fridge-spoil:activation-expiry-set';
 
 interface OnboardingCarouselProps {
+    itemCount?: number;
     onStartClick?: () => void;
 }
 
-export function OnboardingCarousel({ onStartClick }: OnboardingCarouselProps) {
-    const [currentStep, setCurrentStep] = useState(0);
-    const [isTransitioning, setIsTransitioning] = useState(false);
+export function OnboardingCarousel({ itemCount = 0, onStartClick }: OnboardingCarouselProps) {
+    const settings = useLiveQuery(() => db.settings.get('user'), [], undefined);
+    const [dismissed, setDismissed] = useState(() => readLocalValue(DISMISSED_KEY) === 'true');
+    const [expiryConfigured, setExpiryConfigured] = useState(() => readLocalValue(EXPIRY_SET_KEY) === 'true');
+    const [permissionError, setPermissionError] = useState<string | null>(null);
+    const notificationReady = Boolean(
+        settings?.notificationsEnabled
+        && typeof Notification !== 'undefined'
+        && Notification.permission === 'granted',
+    );
+
+    const completed = useMemo(() => [
+        true,
+        itemCount > 0,
+        expiryConfigured,
+        notificationReady,
+    ], [expiryConfigured, itemCount, notificationReady]);
+    const completedCount = completed.filter(Boolean).length;
 
     useEffect(() => {
-        const interval = setInterval(() => {
-            setIsTransitioning(true);
-            setTimeout(() => {
-                setCurrentStep((prev) => (prev + 1) % steps.length);
-                setIsTransitioning(false);
-            }, 300);
-        }, 4000);
+        if (completedCount === completed.length) {
+            const timeout = window.setTimeout(() => {
+                writeLocalValue(DISMISSED_KEY, 'true');
+                setDismissed(true);
+            }, 1_500);
+            return () => window.clearTimeout(timeout);
+        }
+    }, [completed.length, completedCount]);
 
-        return () => clearInterval(interval);
-    }, []);
+    if (dismissed) return null;
 
-    const step = steps[currentStep];
+    const setWarningDays = async (days: number) => {
+        if (!settings) return;
+        await db.settings.update('user', { expirationWarningDays: days });
+        writeLocalValue(EXPIRY_SET_KEY, 'true');
+        setExpiryConfigured(true);
+    };
+
+    const enableNotifications = async () => {
+        setPermissionError(null);
+        const granted = await NotificationService.requestPermission();
+        if (!granted) {
+            setPermissionError('Notifications are blocked in this browser. You can still use the in-app alerts page.');
+            return;
+        }
+        await db.settings.update('user', {
+            notificationsEnabled: true,
+            notificationFrequency: 'daily',
+        });
+        await startScheduler();
+    };
+
+    const dismiss = () => {
+        writeLocalValue(DISMISSED_KEY, 'true');
+        setDismissed(true);
+    };
 
     return (
-        <div className="flex flex-col items-center justify-center py-8 px-4">
-            {/* Image Container */}
-            <div className="relative w-64 h-64 mb-6">
-                <img
-                    src={step.image}
-                    alt={step.title}
-                    className={`
-            w-full h-full object-contain rounded-3xl
-            transition-all duration-300 ease-in-out
-            ${isTransitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}
-          `}
-                />
+        <section className="market-activation" aria-labelledby="activation-heading">
+            <div className="market-activation-heading">
+                <div>
+                    <p>Kitchen setup</p>
+                    <h2 id="activation-heading">Get to your first saved item</h2>
+                </div>
+                <span>{completedCount} of {completed.length}</span>
+                <button type="button" onClick={dismiss} aria-label="Hide setup checklist" title="Hide checklist">
+                    <X size={18} />
+                </button>
             </div>
 
-            {/* Text Content */}
-            <div
-                className={`
-          text-center transition-all duration-300 ease-in-out
-          ${isTransitioning ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}
-        `}
-            >
-                <h3 className="text-xl font-bold text-[var(--text-primary)] mb-2">
-                    {step.title}
-                </h3>
-                <p className="text-[var(--text-secondary)] text-sm">
-                    {step.description}
-                </p>
+            <div className="market-activation-progress" aria-hidden="true">
+                <span style={{ width: `${(completedCount / completed.length) * 100}%` }} />
             </div>
 
-            {/* Progress Dots */}
-            <div className="flex gap-2 mt-6">
-                {steps.map((_, index) => (
-                    <button
-                        key={index}
-                        onClick={() => {
-                            setIsTransitioning(true);
-                            setTimeout(() => {
-                                setCurrentStep(index);
-                                setIsTransitioning(false);
-                            }, 150);
-                        }}
-                        className={`
-              w-2 h-2 rounded-full transition-all duration-300
-              ${currentStep === index
-                                ? 'bg-[var(--accent-color)] w-6'
-                                : 'bg-gray-400 hover:bg-gray-300'}
-            `}
-                        aria-label={`Go to step ${index + 1}`}
-                    />
-                ))}
-            </div>
-
-            {/* Call to Action */}
-            <button
-                onClick={onStartClick}
-                className="mt-8 text-[var(--text-secondary)] text-sm animate-pulse hover:text-[var(--accent-color)] transition-colors focus:outline-none"
-            >
-                Tap the <span className="font-semibold text-green-500">Scan</span> tab to get started!
-            </button>
-        </div>
+            <ol className="market-activation-list">
+                <li className="is-complete">
+                    <span><Check size={15} weight="bold" /></span>
+                    <div><strong>Kitchen ready</strong><small>Your private household space is set.</small></div>
+                </li>
+                <li className={itemCount > 0 ? 'is-complete' : ''}>
+                    <span>{itemCount > 0 ? <Check size={15} weight="bold" /> : <Scan size={16} />}</span>
+                    <div><strong>Add your first grocery</strong><small>Scan a receipt or one item.</small></div>
+                    {!itemCount && <button type="button" onClick={onStartClick}>Scan</button>}
+                </li>
+                <li className={expiryConfigured ? 'is-complete' : ''}>
+                    <span>{expiryConfigured ? <Check size={15} weight="bold" /> : <Gauge size={16} />}</span>
+                    <div><strong>Choose your warning window</strong><small>How early should food appear in alerts?</small></div>
+                    {!expiryConfigured && (
+                        <div className="market-activation-options" role="group" aria-label="Expiration warning days">
+                            {[2, 3, 5].map(days => (
+                                <button type="button" key={days} onClick={() => void setWarningDays(days)}>{days}d</button>
+                            ))}
+                        </div>
+                    )}
+                </li>
+                <li className={notificationReady ? 'is-complete' : ''}>
+                    <span>{notificationReady ? <Check size={15} weight="bold" /> : <Bell size={16} />}</span>
+                    <div><strong>Turn on daily reminders</strong><small>Enable after adding a grocery, when the value is clear.</small></div>
+                    {!notificationReady && (
+                        <button type="button" disabled={itemCount === 0} onClick={() => void enableNotifications()}>Enable</button>
+                    )}
+                </li>
+            </ol>
+            {permissionError && <p className="market-activation-error" role="alert">{permissionError}</p>}
+        </section>
     );
 }

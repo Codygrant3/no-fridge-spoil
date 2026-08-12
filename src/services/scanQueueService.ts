@@ -13,10 +13,48 @@ export interface QueuedScan {
     error?: string;
 }
 
+export function createScanThumbnail(file: File, timeoutMs = 5_000): Promise<string> {
+    const maxThumbnailSize = 120;
+    return new Promise((resolve) => {
+        const image = new Image();
+        const url = URL.createObjectURL(file);
+        let settled = false;
+        let timeout = 0;
+        const settle = (value: string) => {
+            if (settled) return;
+            settled = true;
+            window.clearTimeout(timeout);
+            image.onload = null;
+            image.onerror = null;
+            URL.revokeObjectURL(url);
+            resolve(value);
+        };
+        timeout = window.setTimeout(() => settle(''), timeoutMs);
+
+        image.onload = () => {
+            const scale = Math.min(maxThumbnailSize / image.width, maxThumbnailSize / image.height, 1);
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(image.width * scale);
+            canvas.height = Math.round(image.height * scale);
+            const context = canvas.getContext('2d');
+            if (!context) {
+                settle('');
+                return;
+            }
+            context.drawImage(image, 0, 0, canvas.width, canvas.height);
+            settle(canvas.toDataURL('image/jpeg', 0.6));
+        };
+        image.onerror = () => settle('');
+        image.src = url;
+    });
+}
+
 export class ScanQueue {
     private queue: QueuedScan[] = [];
     private processing = false;
     private onUpdate: (queue: QueuedScan[]) => void;
+    private activeController: AbortController | null = null;
+    private nextTimer: number | null = null;
 
     constructor(onUpdate: (queue: QueuedScan[]) => void) {
         this.onUpdate = onUpdate;
@@ -24,7 +62,7 @@ export class ScanQueue {
 
     async add(file: File): Promise<string> {
         const id = generateUUID();
-        const thumbnail = await this.createThumbnail(file);
+        const thumbnail = await createScanThumbnail(file);
 
         const queuedItem: QueuedScan = {
             id,
@@ -59,10 +97,15 @@ export class ScanQueue {
 
         item.status = 'processing';
         this.onUpdate([...this.queue]);
+        const controller = new AbortController();
+        this.activeController = controller;
 
         try {
-            const compressed = await compressImage(item.file);
+            const compressed = await compressImage(item.file, controller.signal);
+            controller.signal.throwIfAborted();
             const result = await analyzeImage(compressed);
+            controller.signal.throwIfAborted();
+            if (!this.queue.includes(item)) return;
 
             // Convert to ScannedItem format
             const scannedItem: ScannedItem = {
@@ -78,14 +121,21 @@ export class ScanQueue {
             item.status = 'completed';
             item.result = [scannedItem];
         } catch (error) {
+            if (controller.signal.aborted || !this.queue.includes(item)) return;
             item.status = 'failed';
             item.error = error instanceof Error ? error.message : 'Unknown error';
+        } finally {
+            if (this.activeController === controller) this.activeController = null;
         }
 
+        if (!this.queue.includes(item)) return;
         this.onUpdate([...this.queue]);
 
         // Process next item after short delay
-        setTimeout(() => this.processNext(), 500);
+        this.nextTimer = window.setTimeout(() => {
+            this.nextTimer = null;
+            void this.processNext();
+        }, 500);
     }
 
     private getCategoryFromResult(result: VisionAnalysisResult): string {
@@ -97,27 +147,6 @@ export class ScanQueue {
             return 'Meat & Poultry';
         }
         return 'Grocery';
-    }
-
-    private async createThumbnail(file: File): Promise<string> {
-        const MAX_THUMB = 120; // px — small thumbnail for queue preview
-        return new Promise((resolve) => {
-            const img = new Image();
-            const url = URL.createObjectURL(file);
-            img.onload = () => {
-                const scale = Math.min(MAX_THUMB / img.width, MAX_THUMB / img.height, 1);
-                const canvas = document.createElement('canvas');
-                canvas.width = Math.round(img.width * scale);
-                canvas.height = Math.round(img.height * scale);
-                const ctx = canvas.getContext('2d');
-                if (!ctx) { URL.revokeObjectURL(url); resolve(''); return; }
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                URL.revokeObjectURL(url);
-                resolve(canvas.toDataURL('image/jpeg', 0.6));
-            };
-            img.onerror = () => { URL.revokeObjectURL(url); resolve(''); };
-            img.src = url;
-        });
     }
 
     getQueue(): QueuedScan[] {
@@ -135,6 +164,11 @@ export class ScanQueue {
     }
 
     clear(): void {
+        this.activeController?.abort(new DOMException('Scan queue cleared.', 'AbortError'));
+        this.activeController = null;
+        if (this.nextTimer !== null) window.clearTimeout(this.nextTimer);
+        this.nextTimer = null;
+        this.processing = false;
         this.queue = [];
         this.onUpdate([]);
     }

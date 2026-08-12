@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
+import { useState, useEffect, useCallback, useImperativeHandle, forwardRef, useRef } from 'react';
 import { Play, Pause } from 'lucide-react';
 import type { VoiceService } from '../services/voiceService';
 
@@ -19,32 +19,79 @@ export const CookTimer = forwardRef<CookTimerHandle, CookTimerProps>(
     function CookTimer({ voiceService, defaultSeconds = 5 * 60 }, ref) {
         const [timerSeconds, setTimerSeconds] = useState(defaultSeconds);
         const [isTimerRunning, setIsTimerRunning] = useState(false);
+        const secondsRef = useRef(defaultSeconds);
+        const deadlineRef = useRef<number | null>(null);
+        const completionAnnouncedRef = useRef(false);
+
+        const setTimerValue = useCallback((seconds: number) => {
+            const safeSeconds = Math.max(0, Math.round(seconds));
+            secondsRef.current = safeSeconds;
+            setTimerSeconds(safeSeconds);
+            completionAnnouncedRef.current = false;
+            if (isTimerRunning && safeSeconds > 0) {
+                deadlineRef.current = Date.now() + safeSeconds * 1000;
+            } else if (safeSeconds === 0) {
+                deadlineRef.current = null;
+                setIsTimerRunning(false);
+            }
+        }, [isTimerRunning]);
+
+        const startTimer = useCallback(() => {
+            const seconds = secondsRef.current > 0 ? secondsRef.current : defaultSeconds;
+            if (seconds <= 0) return;
+            if (secondsRef.current <= 0) {
+                secondsRef.current = seconds;
+                setTimerSeconds(seconds);
+            }
+            deadlineRef.current = Date.now() + seconds * 1000;
+            completionAnnouncedRef.current = false;
+            setIsTimerRunning(true);
+        }, [defaultSeconds]);
+
+        const pauseTimer = useCallback(() => {
+            if (deadlineRef.current !== null) {
+                const remaining = Math.max(0, Math.ceil((deadlineRef.current - Date.now()) / 1000));
+                secondsRef.current = remaining;
+                setTimerSeconds(remaining);
+            }
+            deadlineRef.current = null;
+            setIsTimerRunning(false);
+        }, []);
 
         useImperativeHandle(ref, () => ({
-            getSeconds: () => timerSeconds,
-            setSeconds: (s: number) => { setTimerSeconds(s); },
-            start: () => setIsTimerRunning(true),
-            pause: () => setIsTimerRunning(false),
+            getSeconds: () => secondsRef.current,
+            setSeconds: setTimerValue,
+            start: startTimer,
+            pause: pauseTimer,
             isRunning: () => isTimerRunning,
-        }), [timerSeconds, isTimerRunning]);
+        }), [isTimerRunning, pauseTimer, setTimerValue, startTimer]);
 
-        // Timer countdown logic
         useEffect(() => {
-            if (!isTimerRunning || timerSeconds <= 0) return;
-
-            const interval = setInterval(() => {
-                setTimerSeconds(prev => {
-                    if (prev <= 1) {
-                        setIsTimerRunning(false);
-                        voiceService?.speak('Timer complete!');
-                        return 0;
-                    }
-                    return prev - 1;
-                });
-            }, 1000);
-
-            return () => clearInterval(interval);
-        }, [isTimerRunning, voiceService]); // removed timerSeconds — not needed with functional update
+            if (!isTimerRunning || deadlineRef.current === null) return;
+            const tick = () => {
+                if (deadlineRef.current === null) return;
+                const remaining = Math.max(0, Math.ceil((deadlineRef.current - Date.now()) / 1000));
+                secondsRef.current = remaining;
+                setTimerSeconds(remaining);
+                if (remaining > 0) return;
+                deadlineRef.current = null;
+                setIsTimerRunning(false);
+                if (!completionAnnouncedRef.current) {
+                    completionAnnouncedRef.current = true;
+                    voiceService?.speak('Timer complete!');
+                }
+            };
+            tick();
+            const interval = window.setInterval(tick, 250);
+            const handleVisibilityChange = () => {
+                if (document.visibilityState === 'visible') tick();
+            };
+            document.addEventListener('visibilitychange', handleVisibilityChange);
+            return () => {
+                window.clearInterval(interval);
+                document.removeEventListener('visibilitychange', handleVisibilityChange);
+            };
+        }, [isTimerRunning, voiceService]);
 
         const formatTime = useCallback((seconds: number): string => {
             const mins = Math.floor(seconds / 60);
@@ -66,7 +113,9 @@ export const CookTimer = forwardRef<CookTimerHandle, CookTimerProps>(
                         fill="none" stroke="var(--accent-color)" strokeWidth="12"
                         strokeLinecap="round"
                         strokeDasharray={2 * Math.PI * 100}
-                        strokeDashoffset={2 * Math.PI * 100 * (1 - timerSeconds / defaultSeconds)}
+                        strokeDashoffset={2 * Math.PI * 100 * (
+                            1 - Math.min(1, timerSeconds / Math.max(1, defaultSeconds))
+                        )}
                         className="transition-all duration-1000 drop-shadow-[0_0_10px_var(--accent-color)]"
                     />
                 </svg>
@@ -79,13 +128,15 @@ export const CookTimer = forwardRef<CookTimerHandle, CookTimerProps>(
                         MINUTES REMAINING
                     </span>
                     <button
-                        onClick={() => setIsTimerRunning(r => !r)}
+                        type="button"
+                        onClick={isTimerRunning ? pauseTimer : startTimer}
+                        aria-label={isTimerRunning ? 'Pause timer' : timerSeconds === 0 ? 'Restart timer' : 'Start timer'}
                         className="mt-4 flex items-center gap-2 px-5 py-2 bg-[var(--bg-secondary)] rounded-full text-sm text-white hover:bg-[var(--bg-tertiary)] transition-all border border-[var(--border-color)] inventory-card font-semibold"
                     >
                         {isTimerRunning ? (
                             <><Pause className="w-4 h-4" /> PAUSE</>
                         ) : (
-                            <><Play className="w-4 h-4" /> RESUME</>
+                            <><Play className="w-4 h-4" /> {timerSeconds === defaultSeconds ? 'START' : timerSeconds === 0 ? 'RESTART' : 'RESUME'}</>
                         )}
                     </button>
                 </div>

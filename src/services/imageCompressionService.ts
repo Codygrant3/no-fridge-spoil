@@ -12,12 +12,13 @@ const DEFAULT_OPTIONS: CompressionOptions = {
   useWebWorker: true,          // Don't block main thread
 };
 
-export async function compressImage(file: File): Promise<File> {
+export async function compressImage(file: File, signal?: AbortSignal): Promise<File> {
   try {
-    const compressed = await imageCompression(file, DEFAULT_OPTIONS);
+    const compressed = await imageCompression(file, { ...DEFAULT_OPTIONS, signal });
     console.log(`Compressed: ${(file.size / 1024).toFixed(0)}KB → ${(compressed.size / 1024).toFixed(0)}KB`);
     return compressed;
   } catch (error) {
+    if (signal?.aborted) throw signal.reason ?? new DOMException('Scan cancelled.', 'AbortError');
     console.error('Compression failed, using original:', error);
     return file; // Fallback to original if compression fails
   }
@@ -29,6 +30,7 @@ export async function compressReceiptImage(file: File): Promise<File> {
     maxSizeMB: 0.8,
     maxWidthOrHeight: 1920,  // Keep higher resolution for text
     useWebWorker: true,
+    fileType: 'image/jpeg', // Azure receipt OCR accepts JPEG but not WebP
   };
 
   try {

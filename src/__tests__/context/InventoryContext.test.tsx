@@ -2,11 +2,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import React from 'react';
 import { InventoryProvider, useInventory } from '../../context/InventoryContext';
+import { ProfileProvider } from '../../context/ProfileContext';
 import { db, initializeDatabase } from '../../db/database';
 
 // Helper to wrap hook with provider
 const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <InventoryProvider>{children}</InventoryProvider>
+  <ProfileProvider>
+    <InventoryProvider>{children}</InventoryProvider>
+  </ProfileProvider>
 );
 
 describe('InventoryContext', () => {
@@ -16,6 +19,8 @@ describe('InventoryContext', () => {
     await db.stats.clear();
     await db.customTags.clear();
     await db.settings.clear();
+    await db.profiles.clear();
+    localStorage.clear();
     // Re-initialize
     await initializeDatabase();
   });
@@ -23,6 +28,8 @@ describe('InventoryContext', () => {
   afterEach(async () => {
     // Clean up after tests
     await db.items.clear();
+    await db.profiles.clear();
+    localStorage.clear();
   });
 
   describe('useInventory hook', () => {

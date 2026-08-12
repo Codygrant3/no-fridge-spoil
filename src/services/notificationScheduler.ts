@@ -8,6 +8,10 @@
 import { db } from '../db/database';
 import type { DbInventoryItem } from '../db/database';
 import { NotificationService } from './notificationService';
+import { getActiveCloudHouseholdId } from './cloudSessionService';
+import { isCloudConfigured } from './supabaseClient';
+import { belongsToActiveHousehold } from './localMutationService';
+import { formatDate, validateAndFormatDate } from '../utils/dateUtils';
 
 export type NotificationFrequency = 'off' | 'daily' | 'twice' | 'realtime';
 
@@ -38,17 +42,20 @@ export async function startScheduler(): Promise<void> {
     if (!notificationsEnabled) return;
 
     // Check permission
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    if (!hasNotificationPermission()) return;
 
-    // Run an immediate check
-    await runNotificationCheck();
-
-    // Set up recurring checks
+    // Install the recurring check even when startup happens during quiet hours.
+    // Every run re-reads settings, so later preference changes take effect.
     const intervalMs = getIntervalMs(frequency);
     if (intervalMs > 0) {
         schedulerInterval = setInterval(() => {
-            runNotificationCheck();
+            void runNotificationCheck();
         }, intervalMs);
+    }
+
+    // Run an immediate check
+    if (!isWithinQuietHours(new Date(), settings.quietHoursStart, settings.quietHoursEnd)) {
+        await runNotificationCheck();
     }
 }
 
@@ -62,34 +69,50 @@ export function stopScheduler(): void {
     }
 }
 
+export function isSchedulerRunning(): boolean {
+    return schedulerInterval !== null;
+}
+
 /**
  * Run a single notification check — batch items by urgency and send.
  */
 export async function runNotificationCheck(): Promise<void> {
     try {
         const settings = await db.settings.get('user');
+        const frequency = settings?.notificationFrequency as NotificationFrequency | undefined;
+        if (
+            !settings?.notificationsEnabled
+            || !frequency
+            || frequency === 'off'
+            || !hasNotificationPermission()
+            || isWithinQuietHours(new Date(), settings.quietHoursStart, settings.quietHoursEnd)
+        ) return;
         const warningDays = settings?.expirationWarningDays ?? 3;
 
         // Get active (non-deleted) items
-        const items = await db.items
+        const items = (await db.items
             .where('isDeleted')
             .equals(0)
-            .toArray();
+            .toArray()).filter(item => belongsToActiveHousehold(
+                item,
+                isCloudConfigured,
+                getActiveCloudHouseholdId(),
+            ));
 
         const batch = categorizeItems(items, warningDays);
 
         // Send notifications for each urgency level, avoiding duplicates
         if (batch.expired.length > 0) {
-            await sendBatchIfNew(batch.expired, 'expired', '🚨 Expired Items');
+            await sendBatchIfNew(batch.expired, 'expired', 'Expired items');
         }
         if (batch.expiresToday.length > 0) {
-            await sendBatchIfNew(batch.expiresToday, 'expiring', '⚠️ Expiring Today');
+            await sendBatchIfNew(batch.expiresToday, 'expiring', 'Expiring today');
         }
         if (batch.expiresTomorrow.length > 0) {
-            await sendBatchIfNew(batch.expiresTomorrow, 'expiring', '📅 Expiring Tomorrow');
+            await sendBatchIfNew(batch.expiresTomorrow, 'expiring', 'Expiring tomorrow');
         }
         if (batch.expiringWarning.length > 0) {
-            await sendBatchIfNew(batch.expiringWarning, 'expiring', `🔔 Expiring Within ${warningDays} Days`);
+            await sendBatchIfNew(batch.expiringWarning, 'expiring', `Expiring within ${warningDays} days`);
         }
 
         // Cleanup old notification logs (older than 7 days)
@@ -106,16 +129,42 @@ export async function runNotificationCheck(): Promise<void> {
     }
 }
 
+function hasNotificationPermission(): boolean {
+    return typeof window !== 'undefined'
+        && 'Notification' in window
+        && Notification.permission === 'granted';
+}
+
+function timeMinutes(value: string | undefined): number | null {
+    if (!value || !/^\d{2}:\d{2}$/.test(value)) return null;
+    const [hours, minutes] = value.split(':').map(Number);
+    if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours > 23 || minutes > 59) return null;
+    return hours * 60 + minutes;
+}
+
+export function isWithinQuietHours(now: Date, startValue?: string, endValue?: string): boolean {
+    const start = timeMinutes(startValue);
+    const end = timeMinutes(endValue);
+    if (start === null || end === null || start === end) return false;
+    const current = now.getHours() * 60 + now.getMinutes();
+    return start < end
+        ? current >= start && current < end
+        : current >= start || current < end;
+}
+
 /**
  * Categorize items into urgency groups.
  */
-function categorizeItems(items: DbInventoryItem[], warningDays: number): NotificationBatch {
-    const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+export function categorizeItems(
+    items: DbInventoryItem[],
+    warningDays: number,
+    now = new Date(),
+): NotificationBatch {
+    const todayStr = formatDate(now);
 
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+    const tomorrowStr = formatDate(tomorrow);
 
     const warningDate = new Date(now);
     warningDate.setDate(warningDate.getDate() + warningDays);
@@ -129,7 +178,8 @@ function categorizeItems(items: DbInventoryItem[], warningDays: number): Notific
 
     for (const item of items) {
         if (!item.expirationDate) continue;
-        const expDate = item.expirationDate.split('T')[0]; // normalize
+        const expDate = validateAndFormatDate(item.expirationDate);
+        if (!expDate) continue;
 
         if (expDate < todayStr) {
             batch.expired.push(item);
@@ -137,7 +187,7 @@ function categorizeItems(items: DbInventoryItem[], warningDays: number): Notific
             batch.expiresToday.push(item);
         } else if (expDate === tomorrowStr) {
             batch.expiresTomorrow.push(item);
-        } else if (expDate <= warningDate.toISOString().split('T')[0]) {
+        } else if (expDate <= formatDate(warningDate)) {
             batch.expiringWarning.push(item);
         }
     }
@@ -171,11 +221,16 @@ async function sendBatchIfNew(
     const names = newItems.slice(0, 4).map(i => i.name);
     const body = names.join(', ') + (newItems.length > 4 ? ` and ${newItems.length - 4} more` : '');
 
-    NotificationService.sendNotification(title, {
+    const delivered = await NotificationService.sendNotification(title, {
         body,
-        tag: `${type}-batch-${new Date().toISOString().split('T')[0]}`,
-        data: { action: 'navigate-alerts' },
+        tag: `${type}-batch-${formatDate(new Date())}`,
+        data: { action: 'navigate-alerts', itemIds: newItems.map(item => item.id) },
+        actions: [
+            { action: 'use-first', title: 'Mark first used' },
+            { action: 'snooze-first', title: 'Snooze first' },
+        ],
     });
+    if (!delivered) return;
 
     // Log these notifications to prevent duplicates
     const logs = newItems.map(item => ({
@@ -211,10 +266,14 @@ export async function getNotificationPreview(): Promise<{
     const settings = await db.settings.get('user');
     const warningDays = settings?.expirationWarningDays ?? 3;
 
-    const items = await db.items
+    const items = (await db.items
         .where('isDeleted')
         .equals(0)
-        .toArray();
+        .toArray()).filter(item => belongsToActiveHousehold(
+            item,
+            isCloudConfigured,
+            getActiveCloudHouseholdId(),
+        ));
 
     const batch = categorizeItems(items, warningDays);
 

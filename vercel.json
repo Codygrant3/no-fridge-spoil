@@ -3,6 +3,42 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
+  "functions": {
+    "api/receipt-ocr.ts": {
+      "maxDuration": 60
+    },
+    "api/receipt-jobs.ts": {
+      "maxDuration": 60
+    },
+    "api/receipt-worker.ts": {
+      "maxDuration": 60
+    },
+    "api/health.ts": {
+      "maxDuration": 15
+    },
+    "api/household.ts": {
+      "maxDuration": 30
+    },
+    "api/account.ts": {
+      "maxDuration": 30
+    },
+    "api/receipt-aliases.ts": {
+      "maxDuration": 30
+    },
+    "api/maintenance.ts": {
+      "maxDuration": 30
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/receipt-worker",
+      "schedule": "47 3 * * *"
+    },
+    {
+      "path": "/api/maintenance",
+      "schedule": "17 3 * * *"
+    }
+  ],
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ],
@@ -25,7 +61,9 @@
       "headers": [
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(self), microphone=(self), geolocation=()" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://world.openfoodfacts.org https://cdn.jsdelivr.net https://tessdata.projectnaptha.com; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; manifest-src 'self'" }
       ]
     }
   ]

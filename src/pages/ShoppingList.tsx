@@ -1,50 +1,74 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import {
+    ArrowCounterClockwise,
+    Basket,
+    Bread,
+    Check,
+    Checks,
+    Coffee,
+    DotsThree,
+    Drop,
+    Egg,
+    Minus,
+    Package,
+    Plus,
+    Trash,
+    X,
+} from '@phosphor-icons/react';
 import { db, type DbShoppingItem } from '../db/database';
-import { ChevronLeft, MoreHorizontal, Plus, Check } from 'lucide-react';
+import { useOptionalAuth } from '../context/AuthContext';
+import { belongsToActiveHousehold, localMutationFields } from '../services/localMutationService';
 
-// Category definitions
 const CATEGORIES = {
-    produce: { label: 'Produce', color: 'text-emerald-400' },
-    dairy: { label: 'Dairy & Eggs', color: 'text-blue-400' },
-    meat: { label: 'Meat & Seafood', color: 'text-red-400' },
-    frozen: { label: 'Frozen', color: 'text-cyan-400' },
-    pantry: { label: 'Pantry', color: 'text-amber-400' },
-    beverages: { label: 'Beverages', color: 'text-purple-400' },
-    other: { label: 'Other', color: 'text-[var(--text-muted)]' },
+    produce: { label: 'Produce', tone: 'produce' },
+    dairy: { label: 'Dairy & eggs', tone: 'dairy' },
+    meat: { label: 'Meat & seafood', tone: 'meat' },
+    frozen: { label: 'Frozen', tone: 'frozen' },
+    pantry: { label: 'Pantry', tone: 'pantry' },
+    beverages: { label: 'Beverages', tone: 'beverages' },
+    other: { label: 'Other', tone: 'other' },
 };
 
-// Running low suggestions
 const RUNNING_LOW = [
-    { name: 'Eggs', icon: '🥚' },
-    { name: 'Oat Milk', icon: '🥛' },
-    { name: 'Coffee Beans', icon: '☕' },
-    { name: 'Bread', icon: '🍞' },
-    { name: 'Butter', icon: '🧈' },
+    { name: 'Eggs', icon: Egg },
+    { name: 'Oat milk', icon: Drop },
+    { name: 'Coffee beans', icon: Coffee },
+    { name: 'Bread', icon: Bread },
+    { name: 'Butter', icon: Package },
 ];
 
 export function ShoppingList() {
+    const auth = useOptionalAuth();
+    const configured = auth?.configured ?? false;
+    const activeHousehold = auth?.activeHousehold ?? null;
     const [newItemName, setNewItemName] = useState('');
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [feedback, setFeedback] = useState<string | null>(null);
+    const [pendingUndo, setPendingUndo] = useState<DbShoppingItem[] | null>(null);
+    const menuTriggerRef = useRef<HTMLButtonElement>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
     const selectedCategory = 'other' as const;
 
-    // Live query for shopping list items
     const items = useLiveQuery(
-        () => db.shoppingList.orderBy('addedAt').reverse().toArray(),
+        () => db.shoppingList.orderBy('addedAt').reverse().toArray().then(records => records.filter(item => (
+            item.isDeleted !== 1
+            && belongsToActiveHousehold(item, configured, activeHousehold?.id ?? null)
+        ))),
+        [configured, activeHousehold?.id],
         [],
-        []
     );
 
-    const checkedCount = items?.filter(i => i.isChecked).length || 0;
+    const checkedCount = items?.filter(item => item.isChecked).length || 0;
     const totalCount = items?.length || 0;
     const efficiencyScore = totalCount > 0 ? Math.round((checkedCount / totalCount) * 100) : 0;
 
-    // Group items by category
     const groupedItems = useMemo(() => {
         const groups: Record<string, DbShoppingItem[]> = {};
         items?.forEach(item => {
-            const cat = item.category || 'other';
-            if (!groups[cat]) groups[cat] = [];
-            groups[cat].push(item);
+            const category = item.category || 'other';
+            groups[category] ??= [];
+            groups[category].push(item);
         });
         return groups;
     }, [items]);
@@ -52,6 +76,19 @@ export function ShoppingList() {
     const addItem = async (name?: string) => {
         const itemName = name || newItemName.trim();
         if (!itemName) return;
+        const existing = items?.find(item => item.name.trim().toLowerCase() === itemName.toLowerCase());
+        if (existing) {
+            const nextQuantity = existing.quantity + 1;
+            await db.shoppingList.update(existing.id, {
+                quantity: nextQuantity,
+                isChecked: false,
+                ...localMutationFields(existing.cloudHouseholdId),
+            });
+            setNewItemName('');
+            setPendingUndo(null);
+            setFeedback(`${existing.name} quantity updated to ${nextQuantity}.`);
+            return;
+        }
 
         await db.shoppingList.add({
             id: crypto.randomUUID(),
@@ -60,144 +97,312 @@ export function ShoppingList() {
             addedAt: new Date().toISOString(),
             isChecked: false,
             category: selectedCategory,
+            isDeleted: 0,
+            ...localMutationFields(),
         });
 
         setNewItemName('');
+        setPendingUndo(null);
+        setFeedback(`${itemName} added to list.`);
     };
 
     const toggleItem = async (id: string, currentState: boolean) => {
-        await db.shoppingList.update(id, { isChecked: !currentState });
+        const item = await db.shoppingList.get(id);
+        if (!item) return;
+        await db.shoppingList.update(id, {
+            isChecked: !currentState,
+            ...localMutationFields(item.cloudHouseholdId),
+        });
     };
 
+    const changeQuantity = async (item: DbShoppingItem, delta: number) => {
+        const quantity = Math.max(1, item.quantity + delta);
+        if (quantity === item.quantity) return;
+        await db.shoppingList.update(item.id, {
+            quantity,
+            ...localMutationFields(item.cloudHouseholdId),
+        });
+        setPendingUndo(null);
+        setFeedback(`${item.name} quantity updated to ${quantity}.`);
+    };
+
+    const removeShoppingItem = async (item: DbShoppingItem) => {
+        setPendingUndo([{ ...item }]);
+        await db.shoppingList.update(item.id, {
+            isDeleted: 1,
+            ...localMutationFields(item.cloudHouseholdId),
+        });
+        setFeedback(`${item.name} removed from list.`);
+    };
+
+    const markAllCollected = async () => {
+        if (!items?.length) return;
+        await db.shoppingList.where('id').anyOf(items.map(item => item.id)).modify(item => {
+            item.isChecked = true;
+            Object.assign(item, localMutationFields(item.cloudHouseholdId));
+        });
+        setFeedback('All items marked collected.');
+        setPendingUndo(null);
+        setIsMenuOpen(false);
+    };
+
+    const clearCollected = async () => {
+        const checkedItems = items?.filter(item => item.isChecked) || [];
+        if (checkedItems.length === 0) return;
+        setPendingUndo(checkedItems.map(item => ({ ...item })));
+        await db.shoppingList.where('id').anyOf(checkedItems.map(item => item.id)).modify(item => {
+            item.isDeleted = 1;
+            Object.assign(item, localMutationFields(item.cloudHouseholdId));
+        });
+        setFeedback(`${checkedItems.length} collected item${checkedItems.length === 1 ? '' : 's'} cleared.`);
+        setIsMenuOpen(false);
+    };
+
+    const clearList = async () => {
+        if (!items?.length) return;
+        const count = items.length;
+        setPendingUndo(items.map(item => ({ ...item })));
+        await db.shoppingList.where('id').anyOf(items.map(item => item.id)).modify(item => {
+            item.isDeleted = 1;
+            Object.assign(item, localMutationFields(item.cloudHouseholdId));
+        });
+        setFeedback(`${count} item${count === 1 ? '' : 's'} cleared from list.`);
+        setIsMenuOpen(false);
+    };
+
+    const undoClear = async () => {
+        if (!pendingUndo?.length) return;
+        await db.transaction('rw', db.shoppingList, async () => {
+            await db.shoppingList.bulkPut(pendingUndo.map(item => ({
+                ...item,
+                isDeleted: 0,
+                ...localMutationFields(item.cloudHouseholdId),
+            })));
+        });
+        setFeedback(`${pendingUndo.length} item${pendingUndo.length === 1 ? '' : 's'} restored.`);
+        setPendingUndo(null);
+    };
+
+    useEffect(() => {
+        if (!isMenuOpen) return;
+        const focusFrame = window.requestAnimationFrame(() => {
+            menuRef.current?.querySelector<HTMLButtonElement>('button:not([disabled])')?.focus();
+        });
+        const closeMenu = () => {
+            setIsMenuOpen(false);
+            window.requestAnimationFrame(() => menuTriggerRef.current?.focus());
+        };
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                closeMenu();
+                return;
+            }
+            if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+            const controls = Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>('button:not([disabled])') ?? []);
+            if (controls.length === 0) return;
+            event.preventDefault();
+            const currentIndex = controls.indexOf(document.activeElement as HTMLButtonElement);
+            const nextIndex = event.key === 'Home'
+                ? 0
+                : event.key === 'End'
+                    ? controls.length - 1
+                    : event.key === 'ArrowDown'
+                        ? (currentIndex + 1 + controls.length) % controls.length
+                        : (currentIndex - 1 + controls.length) % controls.length;
+            controls[nextIndex].focus();
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            window.cancelAnimationFrame(focusFrame);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isMenuOpen]);
+
     return (
-        <div className="min-h-full bg-[var(--bg-primary)] text-[var(--text-primary)] pb-32">
-            {/* Header */}
-            <header className="flex items-center justify-between p-4">
-                <button className="p-2 hover:bg-white/10 rounded-lg">
-                    <ChevronLeft className="w-6 h-6" />
-                </button>
-                <h1 className="text-xl font-bold">Smart Shopping List</h1>
-                <button className="p-2 hover:bg-white/10 rounded-lg">
-                    <MoreHorizontal className="w-5 h-5" />
-                </button>
+        <div className="editorial-page shopping-page">
+            <header className="editorial-page-header">
+                <div>
+                    <p className="editorial-kicker">Next market run</p>
+                    <h1>Shopping list</h1>
+                </div>
+                <div className="relative">
+                    <button
+                        ref={menuTriggerRef}
+                        type="button"
+                        className="market-icon-button editorial-header-action"
+                        onClick={() => setIsMenuOpen(open => !open)}
+                        aria-label="Shopping list options"
+                        aria-expanded={isMenuOpen}
+                        aria-haspopup="menu"
+                        aria-controls={isMenuOpen ? 'shopping-list-menu' : undefined}
+                    >
+                        <DotsThree size={24} weight="bold" />
+                    </button>
+
+                    {isMenuOpen && (
+                        <>
+                            <button
+                                type="button"
+                                className="fixed inset-0 z-40 cursor-default"
+                                aria-label="Close shopping list options"
+                                onClick={() => setIsMenuOpen(false)}
+                            />
+                            <div id="shopping-list-menu" ref={menuRef} className="editorial-menu" role="menu">
+                                <button role="menuitem" type="button" onClick={markAllCollected} disabled={!items?.length || checkedCount === totalCount}>
+                                    <Checks size={18} />
+                                    Mark all collected
+                                </button>
+                                <button role="menuitem" type="button" onClick={clearCollected} disabled={checkedCount === 0}>
+                                    <ArrowCounterClockwise size={18} />
+                                    Clear collected
+                                </button>
+                                <button role="menuitem" type="button" className="is-destructive" onClick={clearList} disabled={!items?.length}>
+                                    <Trash size={18} />
+                                    Clear list
+                                </button>
+                            </div>
+                        </>
+                    )}
+                </div>
             </header>
 
-            <div className="px-4 space-y-6">
-                {/* Efficiency Score */}
-                <section>
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs text-[var(--text-muted)] uppercase tracking-wide">Efficiency Score</span>
-                        <span className="text-emerald-400 font-semibold">{efficiencyScore}% Collected</span>
-                    </div>
-                    <div className="h-1.5 bg-[var(--bg-tertiary)] rounded-full overflow-hidden">
-                        <div
-                            className="h-full bg-gradient-to-r from-green-500 to-emerald-400 rounded-full transition-all"
-                            style={{ width: `${efficiencyScore}%` }}
-                        />
-                    </div>
-                </section>
-
-                {/* Add Item Input */}
-                <div className="flex gap-2">
-                    <input
-                        type="text"
-                        value={newItemName}
-                        onChange={(e) => setNewItemName(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && addItem()}
-                        placeholder="Add 2L Milk, Avocados..."
-                        className="flex-1 px-4 py-3.5 glass-thin border border-[var(--border-color)] rounded-xl text-white placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-color)]"
-                    />
+            {feedback && (
+                <div className="editorial-toast" role="status">
+                    <span>{feedback}</span>
+                    {pendingUndo && (
+                        <button type="button" onClick={() => void undoClear()}>Undo</button>
+                    )}
                     <button
-                        onClick={() => addItem()}
-                        className="px-4 bg-[var(--accent-color)] rounded-xl hover:bg-emerald-600 transition-colors"
-                        aria-label="Add item"
+                        type="button"
+                        onClick={() => {
+                            setFeedback(null);
+                            setPendingUndo(null);
+                        }}
+                        aria-label="Dismiss shopping list feedback"
                     >
-                        <Plus className="w-6 h-6" />
+                        <X size={16} />
                     </button>
                 </div>
+            )}
 
-                {/* Running Low Quick-Add */}
-                <section>
-                    <h3 className="text-xs text-[var(--text-muted)] uppercase tracking-wide mb-3">Running Low</h3>
-                    <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4">
-                        {RUNNING_LOW.map((item) => (
-                            <button
-                                key={item.name}
-                                onClick={() => addItem(item.name)}
-                                className="flex flex-col items-center min-w-[80px] p-3 glass-thin rounded-xl border border-[var(--border-color)] hover:border-[var(--accent-color)] transition-colors"
-                            >
-                                <span className="text-2xl mb-1">{item.icon}</span>
-                                <span className="text-xs text-[var(--text-secondary)]">{item.name}</span>
-                                <span className="text-[10px] text-[var(--text-muted)] mt-1">ADD</span>
-                            </button>
-                        ))}
-                    </div>
-                </section>
+            <section className="editorial-summary-band shopping-progress" aria-label="Shopping progress">
+                <Basket size={25} weight="duotone" />
+                <div>
+                    <strong>{efficiencyScore}% collected</strong>
+                    <span>{checkedCount} of {totalCount} items ready</span>
+                </div>
+                <div className="editorial-progress-track" aria-hidden="true">
+                    <div style={{ width: `${efficiencyScore}%` }} />
+                </div>
+            </section>
 
-                {/* Shopping List by Category */}
-                {Object.entries(groupedItems).map(([category, categoryItems]) => {
-                    const catInfo = CATEGORIES[category as keyof typeof CATEGORIES] || CATEGORIES.other;
-                    const unchecked = categoryItems.filter(i => !i.isChecked);
-                    const checked = categoryItems.filter(i => i.isChecked);
+            <section className="shopping-add-section" aria-label="Add a shopping item">
+                <label className="shopping-add-field">
+                    <input
+                        value={newItemName}
+                        onChange={event => setNewItemName(event.target.value)}
+                        onKeyDown={event => event.key === 'Enter' && void addItem()}
+                        placeholder="Add milk, avocados, bread..."
+                    />
+                </label>
+                <button type="button" className="shopping-add-button" onClick={() => void addItem()} aria-label="Add item">
+                    <Plus size={23} weight="bold" />
+                </button>
+            </section>
 
-                    if (categoryItems.length === 0) return null;
+            <section className="editorial-section" aria-labelledby="quick-add-heading">
+                <div className="editorial-section-heading">
+                    <h2 id="quick-add-heading">Running low</h2>
+                    <span>Quick add</span>
+                </div>
+                <div className="shopping-quick-add">
+                    {RUNNING_LOW.map(({ name, icon: Icon }) => (
+                        <button key={name} type="button" onClick={() => void addItem(name)}>
+                            <Icon size={20} weight="duotone" />
+                            <span>{name}</span>
+                            <Plus size={14} weight="bold" />
+                        </button>
+                    ))}
+                </div>
+            </section>
 
-                    return (
-                        <section key={category}>
-                            <div className="flex items-center justify-between mb-3">
-                                <h3 className="font-semibold">{catInfo.label}</h3>
-                                <span className={`text-sm ${catInfo.color}`}>{unchecked.length} items</span>
-                            </div>
-                            <div className="space-y-2">
-                                {[...unchecked, ...checked].map((item) => (
-                                    <button
-                                        key={item.id}
-                                        onClick={() => toggleItem(item.id, item.isChecked)}
-                                        className={`w-full flex items-center gap-3 p-4 rounded-xl transition-all ${item.isChecked
-                                            ? 'glass-thin/50 opacity-60'
-                                            : 'glass-thin border border-[var(--border-color)]'
-                                            }`}
-                                    >
-                                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${item.isChecked
-                                            ? 'bg-[var(--accent-color)] border-[var(--accent-color)]'
-                                            : 'border-[var(--border-color)]'
-                                            }`}>
-                                            {item.isChecked && <Check className="w-4 h-4 text-white" />}
-                                        </div>
-                                        <div className="flex-1 text-left">
-                                            <span className={item.isChecked ? 'line-through text-[var(--text-muted)]' : ''}>
-                                                {item.name}
-                                            </span>
-                                            {item.metadata && (
-                                                <p className="text-xs text-emerald-400 mt-0.5">{item.metadata}</p>
-                                            )}
-                                            {item.lastBought && (
-                                                <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                                                    Last bought {Math.round((Date.now() - new Date(item.lastBought).getTime()) / (1000 * 60 * 60 * 24))} days ago
-                                                </p>
-                                            )}
-                                        </div>
-                                        {item.unit && (
-                                            <span className="text-[var(--text-muted)] text-sm">{item.quantity}{item.unit}</span>
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
-                        </section>
-                    );
-                })}
+            {Object.entries(groupedItems).map(([category, categoryItems]) => {
+                const categoryInfo = CATEGORIES[category as keyof typeof CATEGORIES] || CATEGORIES.other;
+                const unchecked = categoryItems.filter(item => !item.isChecked);
+                const checked = categoryItems.filter(item => item.isChecked);
 
-                {/* Empty State */}
-                {(!items || items.length === 0) && (
-                    <div className="flex flex-col items-center justify-center py-16 text-center">
-                        <div className="w-20 h-20 glass-thin rounded-full flex items-center justify-center mb-4">
-                            <span className="text-4xl">🛒</span>
+                return (
+                    <section key={category} className="editorial-section" aria-labelledby={`shopping-${category}`}>
+                        <div className="editorial-section-heading">
+                            <h2 id={`shopping-${category}`}>{categoryInfo.label}</h2>
+                            <span className={`editorial-count tone-${categoryInfo.tone}`}>{unchecked.length}</span>
                         </div>
-                        <h3 className="text-xl font-semibold mb-2">Your list is empty</h3>
-                        <p className="text-[var(--text-muted)]">Add items above or tap "Running Low" suggestions</p>
-                    </div>
-                )}
-            </div>
+                        <div className="shopping-list-rows">
+                            {[...unchecked, ...checked].map(item => (
+                                <div
+                                    key={item.id}
+                                    className={`shopping-list-row ${item.isChecked ? 'is-checked' : ''}`}
+                                >
+                                    <button
+                                        type="button"
+                                        className="shopping-row-toggle"
+                                        onClick={() => void toggleItem(item.id, item.isChecked)}
+                                        aria-label={`${item.isChecked ? 'Mark not collected' : 'Mark collected'}: ${item.name}`}
+                                    >
+                                        <span className="shopping-check">
+                                            {item.isChecked && <Check size={15} weight="bold" />}
+                                        </span>
+                                        <span className="shopping-item-copy">
+                                            <strong>{item.name}</strong>
+                                            {item.metadata && <small>{item.metadata}</small>}
+                                            {item.lastBought && (
+                                                <small>Last bought {Math.round((Date.now() - new Date(item.lastBought).getTime()) / 86_400_000)} days ago</small>
+                                            )}
+                                        </span>
+                                    </button>
+                                    <span className="shopping-item-controls">
+                                        <button
+                                            type="button"
+                                            onClick={() => void changeQuantity(item, -1)}
+                                            disabled={item.quantity <= 1}
+                                            aria-label={`Decrease ${item.name} quantity`}
+                                        >
+                                            <Minus size={13} weight="bold" />
+                                        </button>
+                                        <span className="shopping-quantity" aria-label={`${item.quantity} ${item.unit || 'items'}`}>
+                                            {item.quantity}{item.unit || ''}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => void changeQuantity(item, 1)}
+                                            aria-label={`Increase ${item.name} quantity`}
+                                        >
+                                            <Plus size={13} weight="bold" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="is-remove"
+                                            onClick={() => void removeShoppingItem(item)}
+                                            aria-label={`Remove ${item.name} from list`}
+                                        >
+                                            <Trash size={14} />
+                                        </button>
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                );
+            })}
+
+            {(!items || items.length === 0) && (
+                <div className="editorial-empty-state shopping-empty">
+                    <Basket size={40} weight="duotone" />
+                    <h2>Your list is empty</h2>
+                    <p>Add an item above or use a running-low shortcut.</p>
+                </div>
+            )}
         </div>
     );
 }

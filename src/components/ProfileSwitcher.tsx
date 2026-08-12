@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useProfile, PROFILE_AVATARS, PROFILE_COLORS } from '../context/ProfileContext';
-import { ChevronDown, Plus, X, Check, Users, Trash2 } from 'lucide-react';
+import { CaretDown, Check, Plus, Trash, UsersThree, X } from '@phosphor-icons/react';
 
 export function ProfileSwitcher() {
     const {
@@ -37,141 +37,122 @@ export function ProfileSwitcher() {
     };
 
     return (
-        <div className="relative">
-            {/* Profile Button */}
+        <div className="market-profile-switcher">
             <button
+                type="button"
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-3xl glass-thin transition-all active:scale-95"
+                className="market-profile-trigger"
+                aria-expanded={isOpen}
             >
                 {isHousehold ? (
                     <>
-                        <Users className="w-4 h-4 text-[var(--accent-color)]" />
-                        <span className="text-sm font-semibold text-white">Household</span>
+                        <UsersThree size={19} weight="regular" />
+                        <span>Household</span>
                     </>
                 ) : (
                     <>
-                        <span className="text-lg">{activeProfile?.avatar}</span>
-                        <span className="text-sm font-semibold text-white">{activeProfile?.name}</span>
+                        <span className="market-avatar market-avatar-small">{activeProfile?.avatar}</span>
+                        <span>{activeProfile?.name}</span>
                     </>
                 )}
-                <ChevronDown className={`w-3.5 h-3.5 text-[var(--text-muted)] transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                <CaretDown size={14} weight="bold" className={isOpen ? 'rotate-180' : ''} />
             </button>
 
-            {/* Dropdown */}
             {isOpen && (
                 <>
-                    {/* Backdrop */}
                     <div
                         className="fixed inset-0 z-40"
                         onClick={() => { setIsOpen(false); setIsCreating(false); setConfirmDelete(null); }}
                     />
 
-                    <div
-                        className="absolute top-full left-0 mt-2 w-64 rounded-3xl overflow-hidden z-50"
-                        style={{
-                            background: 'rgba(4, 40, 28, 0.85)',
-                            backdropFilter: 'blur(40px) saturate(180%)',
-                            WebkitBackdropFilter: 'blur(40px) saturate(180%)',
-                            border: '1px solid rgba(52, 211, 153, 0.1)',
-                            boxShadow: '0 16px 48px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(167, 243, 208, 0.05)',
-                        }}
-                    >
-                        {/* Household Option */}
+                    <div className="market-profile-popover">
                         <button
+                            type="button"
                             onClick={() => { switchProfile(null); setIsOpen(false); }}
-                            className={`w-full flex items-center gap-3 px-4 py-3 transition-colors ${
-                                isHousehold ? 'bg-[var(--accent-color)]/10' : 'hover:bg-white/5'
-                            }`}
+                            className={`market-profile-option ${isHousehold ? 'is-selected' : ''}`}
                         >
-                            <div className="w-8 h-8 rounded-full bg-[var(--accent-color)]/20 flex items-center justify-center">
-                                <Users className="w-4 h-4 text-[var(--accent-color)]" />
+                            <div className="market-profile-icon">
+                                <UsersThree size={18} />
                             </div>
-                            <span className="text-sm font-semibold text-white flex-1 text-left">Household</span>
-                            {isHousehold && <Check className="w-4 h-4 text-[var(--accent-color)]" />}
+                            <span>Household</span>
+                            {isHousehold && <Check size={17} weight="bold" />}
                         </button>
 
-                        {/* Divider */}
-                        {profiles.length > 0 && (
-                            <div className="border-t border-[var(--border-color)]" />
-                        )}
+                        {profiles.length > 0 && <div className="market-popover-divider" />}
 
-                        {/* Profile List */}
                         {profiles.map(profile => (
-                            <div key={profile.id} className="relative group">
+                            <div key={profile.id} className="market-profile-row group">
                                 <button
+                                    type="button"
                                     onClick={() => { switchProfile(profile.id); setIsOpen(false); }}
-                                    className={`w-full flex items-center gap-3 px-4 py-3 transition-colors ${
-                                        activeProfileId === profile.id ? 'bg-[var(--accent-color)]/10' : 'hover:bg-white/5'
-                                    }`}
+                                    className={`market-profile-option ${activeProfileId === profile.id ? 'is-selected' : ''}`}
                                 >
                                     <div
-                                        className="w-8 h-8 rounded-full flex items-center justify-center text-lg"
-                                        style={{ backgroundColor: `${profile.color}20` }}
+                                        className="market-avatar"
+                                        style={{ backgroundColor: `${profile.color}18` }}
                                     >
                                         {profile.avatar}
                                     </div>
-                                    <span className="text-sm font-semibold text-white flex-1 text-left">{profile.name}</span>
+                                    <span>{profile.name}</span>
                                     {activeProfileId === profile.id && (
-                                        <Check className="w-4 h-4 text-[var(--accent-color)]" />
+                                        <Check size={17} weight="bold" />
                                     )}
                                 </button>
 
-                                {/* Delete button */}
                                 {confirmDelete === profile.id ? (
-                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                    <div className="market-profile-delete-confirm">
                                         <button
+                                            type="button"
                                             onClick={(e) => { e.stopPropagation(); handleDelete(profile.id); }}
-                                            className="p-1.5 bg-red-500/30 rounded-lg text-red-400 text-xs font-bold"
+                                            className="market-confirm-delete"
                                         >
                                             Confirm
                                         </button>
                                         <button
+                                            type="button"
                                             onClick={(e) => { e.stopPropagation(); setConfirmDelete(null); }}
-                                            className="p-1.5 bg-white/10 rounded-lg"
+                                            className="market-icon-button market-icon-button-small"
+                                            aria-label="Cancel delete"
                                         >
-                                            <X className="w-3 h-3 text-white" />
+                                            <X size={14} />
                                         </button>
                                     </div>
                                 ) : (
                                     <button
+                                        type="button"
                                         onClick={(e) => { e.stopPropagation(); setConfirmDelete(profile.id); }}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 opacity-60 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-red-500/20 rounded-lg transition-all"
+                                        className="market-profile-delete"
+                                        aria-label={`Delete ${profile.name}`}
                                     >
-                                        <Trash2 className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                                        <Trash size={16} />
                                     </button>
                                 )}
                             </div>
                         ))}
 
-                        {/* Divider */}
-                        <div className="border-t border-[var(--border-color)]" />
+                        <div className="market-popover-divider" />
 
-                        {/* Create Profile */}
                         {isCreating ? (
-                            <div className="p-4 space-y-3">
+                            <div className="market-profile-create">
                                 <input
                                     type="text"
                                     value={newName}
                                     onChange={e => setNewName(e.target.value)}
                                     placeholder="Profile name"
-                                    className="w-full px-3 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-xl text-white text-sm outline-none"
+                                    className="market-input"
                                     autoFocus
                                     onKeyDown={e => { if (e.key === 'Enter') handleCreate(); }}
                                 />
 
-                                {/* Avatar Picker */}
                                 <div>
-                                    <p className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-wide mb-1.5">Avatar</p>
-                                    <div className="flex flex-wrap gap-1.5">
+                                    <p className="market-field-label">Avatar</p>
+                                    <div className="market-avatar-grid">
                                         {PROFILE_AVATARS.map(avatar => (
                                             <button
+                                                type="button"
                                                 key={avatar}
                                                 onClick={() => setNewAvatar(avatar)}
-                                                className={`w-8 h-8 rounded-lg flex items-center justify-center text-lg transition-all ${
-                                                    newAvatar === avatar
-                                                        ? 'bg-[var(--accent-color)]/30 ring-2 ring-[var(--accent-color)] scale-110'
-                                                        : 'bg-[var(--bg-tertiary)] hover:bg-white/10'
-                                                }`}
+                                                className={`market-avatar-choice ${newAvatar === avatar ? 'is-selected' : ''}`}
                                             >
                                                 {avatar}
                                             </button>
@@ -179,34 +160,35 @@ export function ProfileSwitcher() {
                                     </div>
                                 </div>
 
-                                {/* Color Picker */}
                                 <div>
-                                    <p className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-wide mb-1.5">Color</p>
-                                    <div className="flex gap-1.5">
+                                    <p className="market-field-label">Color</p>
+                                    <div className="market-color-grid">
                                         {PROFILE_COLORS.map(color => (
                                             <button
+                                                type="button"
                                                 key={color}
                                                 onClick={() => setNewColor(color)}
-                                                className={`w-7 h-7 rounded-full transition-all ${
-                                                    newColor === color ? 'ring-2 ring-white scale-110' : 'hover:scale-105'
-                                                }`}
+                                                className={`market-color-choice ${newColor === color ? 'is-selected' : ''}`}
                                                 style={{ backgroundColor: color }}
+                                                aria-label={`Use ${color}`}
                                             />
                                         ))}
                                     </div>
                                 </div>
 
-                                <div className="flex gap-2">
+                                <div className="market-profile-actions">
                                     <button
+                                        type="button"
                                         onClick={() => setIsCreating(false)}
-                                        className="flex-1 py-2 bg-[var(--bg-tertiary)] rounded-xl text-white text-sm font-medium"
+                                        className="market-secondary-button"
                                     >
                                         Cancel
                                     </button>
                                     <button
+                                        type="button"
                                         onClick={handleCreate}
                                         disabled={!newName.trim()}
-                                        className="flex-1 py-2 bg-[var(--accent-color)] rounded-xl text-white text-sm font-bold disabled:opacity-50"
+                                        className="market-primary-button"
                                     >
                                         Create
                                     </button>
@@ -214,13 +196,14 @@ export function ProfileSwitcher() {
                             </div>
                         ) : (
                             <button
+                                type="button"
                                 onClick={() => setIsCreating(true)}
-                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors"
+                                className="market-profile-option"
                             >
-                                <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
-                                    <Plus className="w-4 h-4 text-[var(--text-secondary)]" />
+                                <div className="market-profile-icon">
+                                    <Plus size={18} />
                                 </div>
-                                <span className="text-sm font-semibold text-[var(--text-secondary)]">Add Profile</span>
+                                <span>Add profile</span>
                             </button>
                         )}
                     </div>

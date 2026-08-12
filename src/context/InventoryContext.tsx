@@ -6,6 +6,10 @@ import { ImpactService } from '../services/impactService';
 import { generateUUID } from '../utils/uuid';
 import { calculateOpenedExpiration } from '../services/shelfLifeService';
 import { useProfile } from './ProfileContext';
+import { useOptionalAuth } from './AuthContext';
+import { belongsToActiveHousehold, localMutationFields } from '../services/localMutationService';
+import { InventoryItemSchema } from '../db/schemas';
+import { dateOnlyToLocalDate, isValidDateOnly } from '../utils/dateValidation';
 
 interface Stats {
     totalItems: number;
@@ -46,8 +50,8 @@ function calculateStatus(
         }
     }
 
-    const expDate = new Date(effectiveExpiration);
-    expDate.setHours(0, 0, 0, 0);
+    const expDate = dateOnlyToLocalDate(effectiveExpiration);
+    if (!expDate) return 'expiring_soon';
     const diffTime = expDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
@@ -59,6 +63,9 @@ function calculateStatus(
 export function InventoryProvider({ children }: { children: React.ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
     const { activeProfileId, isHousehold } = useProfile();
+    const auth = useOptionalAuth();
+    const configured = auth?.configured ?? false;
+    const activeHousehold = auth?.activeHousehold ?? null;
 
     // Initialize database on mount
     useEffect(() => {
@@ -75,12 +82,15 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
     // Specific profile = show items for that profile + unassigned items
     const dbItems = useLiveQuery(
         () => db.items.where('isDeleted').equals(0).toArray().then(allItems => {
-            if (isHousehold) return allItems;
-            return allItems.filter(item =>
+            const householdItems = allItems.filter(item => (
+                belongsToActiveHousehold(item, configured, activeHousehold?.id ?? null)
+            ));
+            if (isHousehold) return householdItems;
+            return householdItems.filter(item =>
                 !item.profileId || item.profileId === activeProfileId
             );
         }),
-        [activeProfileId, isHousehold],
+        [activeProfileId, isHousehold, configured, activeHousehold?.id],
         []
     );
 
@@ -113,6 +123,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
             const status = calculateStatus(item.expirationDate, item.openedDate, item.name);
             const now = new Date().toISOString();
             const id = generateUUID();
+            const mutation = localMutationFields();
 
             // Explicit object to avoid spreading issues
             const newItem = {
@@ -122,7 +133,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
                 expirationDate: item.expirationDate,
                 dateType: item.dateType,
                 addedAt: now,
-                updatedAt: now,
+                ...mutation,
                 status,
                 quantity: item.quantity || 1,
                 storageLocation: item.storageLocation || 'fridge',
@@ -131,10 +142,9 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
                 profileId: activeProfileId || undefined, // Associate with active profile
             };
 
-            console.log('Adding item to database:', JSON.stringify(newItem, null, 2));
+            InventoryItemSchema.parse(newItem);
 
             await db.items.add(newItem);
-            console.log('Item added successfully with id:', id);
 
             // Update stats (don't fail if this doesn't work)
             try {
@@ -160,7 +170,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
             // Soft delete with number value for isDeleted
             await db.items.update(id, {
                 isDeleted: 1,
-                updatedAt: new Date().toISOString(),
+                ...localMutationFields(item.cloudHouseholdId),
             });
 
             // Update waste stats if expired
@@ -178,17 +188,21 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
 
     const updateItem = useCallback(async (id: string, updates: Partial<InventoryItem>) => {
         const item = await db.items.get(id);
+        if (!item) throw new Error('Inventory item not found.');
+        if (updates.expirationDate !== undefined && !isValidDateOnly(updates.expirationDate)) {
+            throw new Error('Expiration date must be a real calendar date in YYYY-MM-DD format.');
+        }
 
-        const updateData: Partial<InventoryItem & { updatedAt: string }> = {
+        const updateData: Partial<InventoryItem & { updatedAt: string; syncPending: number; cloudHouseholdId?: string }> = {
             ...updates,
-            updatedAt: new Date().toISOString(),
+            ...localMutationFields(item?.cloudHouseholdId),
         };
 
         // Recalculate status if expiration date or opened date changed
         if (updates.expirationDate || updates.openedDate) {
-            const expDate = updates.expirationDate || item?.expirationDate || '';
-            const openedDate = updates.openedDate !== undefined ? updates.openedDate : item?.openedDate;
-            const itemName = item?.name || '';
+            const expDate = updates.expirationDate || item.expirationDate;
+            const openedDate = updates.openedDate !== undefined ? updates.openedDate : item.openedDate;
+            const itemName = item.name;
             updateData.status = calculateStatus(expDate, openedDate, itemName);
         }
 
@@ -206,7 +220,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
                 await db.items.update(id, {
                     isDeleted: 1,
                     consumedAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
+                    ...localMutationFields(item.cloudHouseholdId),
                 });
 
                 // Update saved stats
@@ -240,7 +254,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
                 if (newStatus !== item.status) {
                     await db.items.update(item.id, {
                         status: newStatus,
-                        updatedAt: new Date().toISOString(),
+                        ...localMutationFields(item.cloudHouseholdId),
                     });
                 }
             }

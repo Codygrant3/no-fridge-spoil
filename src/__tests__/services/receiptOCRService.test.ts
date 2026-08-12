@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockReceiptResponse = {
+  provider: 'azure-document-intelligence',
+  providerLabel: 'Azure Document Intelligence',
   storeName: 'Fresh Market Test Store',
   date: '2026-05-02',
   items: [
@@ -22,19 +24,14 @@ const mockReceiptResponse = {
   ],
   totalItemsDetected: 2,
   skippedItems: ['Dish Soap'],
+  estimatedCostCents: 1,
 };
 
 const receiptCache = new Map<string, unknown>();
+const receiptJobId = '22222222-2222-4222-8222-222222222222';
 
-async function loadReceiptService(generateContent = vi.fn()) {
+async function loadReceiptService() {
   vi.resetModules();
-  vi.doMock('../../services/ai-client', () => ({
-    ai: {
-      models: {
-        generateContent,
-      },
-    },
-  }));
   vi.doMock('../../services/aiCacheService', () => ({
     makeReceiptImageCacheKey: vi.fn((file: File) => Promise.resolve(`receipt:${file.name}:${file.size}:${file.type}`)),
     getCachedResponse: vi.fn((key: string) => Promise.resolve(receiptCache.get(key) ?? null)),
@@ -43,27 +40,52 @@ async function loadReceiptService(generateContent = vi.fn()) {
       return Promise.resolve();
     }),
   }));
+  vi.doMock('../../services/cloudSessionService', () => ({
+    CloudSessionError: class CloudSessionError extends Error {},
+    getAuthenticatedRequestHeaders: vi.fn().mockResolvedValue({
+      Authorization: 'Bearer test-access-token',
+      'X-Household-Id': '11111111-1111-4111-8111-111111111111',
+    }),
+  }));
 
   return import('../../services/receiptOCRService');
 }
 
-function makeSyntheticReceiptFile(type = 'image/png') {
-  return new File(['SYNTHETIC RECEIPT IMAGE BYTES'], 'synthetic-receipt.png', { type });
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+function makeSyntheticReceiptFile(type = 'image/jpeg') {
+  return new File(['SYNTHETIC RECEIPT IMAGE BYTES'], 'synthetic-receipt.jpg', { type });
+}
+
+function successfulJobResponses(result: unknown = mockReceiptResponse): Response[] {
+  return [
+    jsonResponse({ jobId: receiptJobId, status: 'queued', retryAfterMs: 1 }, 202),
+    jsonResponse({ jobId: receiptJobId, status: 'succeeded', attempts: 1, maxAttempts: 3, result }),
+  ];
 }
 
 describe('receiptOCRService', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
     receiptCache.clear();
   });
 
-  it('sends receipt images to Gemini with the expected OCR prompt and inline image data', async () => {
-    const generateContent = vi.fn().mockResolvedValue({
-      text: JSON.stringify(mockReceiptResponse),
-    });
-    const { analyzeReceipt } = await loadReceiptService(generateContent);
+  it('uploads a receipt to the secure OCR endpoint as multipart form data', async () => {
+    const [queued, completed] = successfulJobResponses();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(queued)
+      .mockResolvedValueOnce(completed);
+    vi.stubGlobal('fetch', fetchMock);
+    const { analyzeReceipt } = await loadReceiptService();
+    const file = makeSyntheticReceiptFile();
 
-    const result = await analyzeReceipt(makeSyntheticReceiptFile());
+    const result = await analyzeReceipt(file);
 
     expect(result.items).toHaveLength(2);
     expect(result.skippedItems).toEqual(['Dish Soap']);
@@ -75,61 +97,117 @@ describe('receiptOCRService', () => {
       confidence: 'High',
     });
 
-    expect(generateContent).toHaveBeenCalledTimes(1);
-    const request = generateContent.mock.calls[0][0];
-    expect(request.model).toBe('gemini-2.0-flash-exp');
-    expect(request.contents[0].role).toBe('user');
-
-    const [promptPart, imagePart] = request.contents[0].parts;
-    expect(promptPart.text).toContain('Analyze this grocery receipt image');
-    expect(promptPart.text).toContain('Skip non-food items');
-    expect(promptPart.text).toContain('skippedItems');
-    expect(promptPart.text).toContain('Return ONLY valid JSON');
-    expect(imagePart.inlineData).toMatchObject({
-      mimeType: 'image/png',
-      data: expect.any(String),
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [url, request] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/receipt-jobs');
+    expect(request.method).toBe('POST');
+    expect(request.headers).toMatchObject({
+      Authorization: 'Bearer test-access-token',
+      'X-Household-Id': '11111111-1111-4111-8111-111111111111',
     });
-    expect(imagePart.inlineData.data.length).toBeGreaterThan(0);
+    expect(request.body).toBeInstanceOf(FormData);
+    expect((request.body as FormData).get('receipt')).toBeInstanceOf(File);
+    expect(fetchMock).toHaveBeenNthCalledWith(2, `/api/receipt-jobs?id=${receiptJobId}`, expect.objectContaining({
+      method: 'PUT',
+    }));
   });
 
-  it('parses Gemini JSON wrapped in markdown code fences', async () => {
-    const generateContent = vi.fn().mockResolvedValue({
-      text: `\`\`\`json\n${JSON.stringify(mockReceiptResponse)}\n\`\`\``,
-    });
-    const { analyzeReceipt } = await loadReceiptService(generateContent);
+  it('preserves raw OCR evidence and shadow-mode resolution proposals', async () => {
+    const enrichedResponse = {
+      ...mockReceiptResponse,
+      items: [{
+        name: 'ORG WHL MLK',
+        originalName: 'ORG WHL MLK',
+        quantity: 1,
+        price: '4.99',
+        category: 'Grocery',
+        confidence: 'Medium',
+        sourceLine: 'ORG WHL MLK 4.99 012345678905',
+        resolution: {
+          proposedName: 'Organic Whole Milk',
+          proposedBrand: 'Horizon',
+          proposedCategory: 'Dairy',
+          confidence: 'Medium',
+          method: 'barcode-lookup',
+          shouldReview: true,
+          autoAccepted: false,
+          alternatives: ['Whole Milk', 'Organic Milk'],
+          unresolvedTokens: [],
+          evidence: ['Raw OCR: ORG WHL MLK', 'Barcode: 012345678905'],
+          packageInfo: { size: 1, unit: 'gallon' },
+          barcode: '012345678905',
+          catalogSource: 'open-food-facts',
+        },
+      }],
+      totalItemsDetected: 1,
+      resolutionMode: 'shadow',
+      resolutionStats: {
+        proposed: 1,
+        autoAccepted: 0,
+        needsReview: 1,
+        barcodeMatches: 1,
+      },
+    };
+    const [queued, completed] = successfulJobResponses(enrichedResponse);
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(queued)
+      .mockResolvedValueOnce(completed));
+    const { analyzeReceipt } = await loadReceiptService();
 
-    const result = await analyzeReceipt(makeSyntheticReceiptFile('image/jpeg'));
+    const result = await analyzeReceipt(makeSyntheticReceiptFile());
 
-    expect(result).toMatchObject({
-      storeName: 'Fresh Market Test Store',
-      date: '2026-05-02',
-      totalItemsDetected: 2,
+    expect(result.resolutionMode).toBe('shadow');
+    expect(result.resolutionStats).toEqual({
+      proposed: 1,
+      autoAccepted: 0,
+      needsReview: 1,
+      barcodeMatches: 1,
     });
-    expect(result.items.map((item) => item.name)).toEqual(['Organic Whole Milk', 'Bananas']);
+    expect(result.items[0]).toMatchObject({
+      name: 'ORG WHL MLK',
+      originalName: 'ORG WHL MLK',
+      sourceLine: 'ORG WHL MLK 4.99 012345678905',
+      resolution: {
+        proposedName: 'Organic Whole Milk',
+        confidence: 'Medium',
+        shouldReview: true,
+        autoAccepted: false,
+        alternatives: ['Whole Milk', 'Organic Milk'],
+        evidence: ['Raw OCR: ORG WHL MLK', 'Barcode: 012345678905'],
+        barcode: '012345678905',
+        catalogSource: 'open-food-facts',
+      },
+    });
   });
 
   it('uses the receipt OCR cache for repeat scans of the same image', async () => {
-    const generateContent = vi.fn().mockResolvedValue({
-      text: JSON.stringify(mockReceiptResponse),
-    });
-    const { analyzeReceipt } = await loadReceiptService(generateContent);
+    const [queued, completed] = successfulJobResponses();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(queued)
+      .mockResolvedValueOnce(completed);
+    vi.stubGlobal('fetch', fetchMock);
+    const { analyzeReceipt } = await loadReceiptService();
     const file = makeSyntheticReceiptFile();
 
     await analyzeReceipt(file);
     const secondResult = await analyzeReceipt(file);
 
-    expect(generateContent).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(secondResult.cacheHit).toBe(true);
     expect(secondResult.items[0].name).toBe('Organic Whole Milk');
   });
 
-  it('returns an empty item list when Gemini omits items', async () => {
-    const generateContent = vi.fn().mockResolvedValue({
-      text: JSON.stringify({
-        storeName: 'Sparse Store',
-        date: '2026-05-02',
-      }),
+  it('returns an empty item list when Azure finds no line items', async () => {
+    const [queued, completed] = successfulJobResponses({
+      storeName: 'Sparse Store',
+      date: '2026-05-02',
+      items: [],
+      skippedItems: [],
     });
-    const { analyzeReceipt } = await loadReceiptService(generateContent);
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(queued)
+      .mockResolvedValueOnce(completed));
+    const { analyzeReceipt } = await loadReceiptService();
 
     const result = await analyzeReceipt(makeSyntheticReceiptFile());
 
@@ -140,44 +218,56 @@ describe('receiptOCRService', () => {
       totalItemsDetected: 0,
       skippedItems: [],
       cacheHit: false,
-      estimatedCostCents: 1,
+      estimatedCostCents: 0,
     });
   });
 
-  it('fails fast when the Gemini API key is not configured', async () => {
-    vi.resetModules();
-    vi.doMock('../../services/ai-client', () => ({
-      ai: null,
-    }));
-    const { analyzeReceipt } = await import('../../services/receiptOCRService');
-
-    await expect(analyzeReceipt(makeSyntheticReceiptFile())).rejects.toThrow('Missing Gemini API Key');
-  });
-
-  it('normalizes malformed Gemini responses into a receipt analysis error', async () => {
+  it('surfaces missing server configuration without exposing a browser key', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    const generateContent = vi.fn().mockResolvedValue({
-      text: 'not-json',
-    });
-    const { analyzeReceipt } = await loadReceiptService(generateContent);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({
+      provider: 'azure-document-intelligence',
+      providerLabel: 'Azure Document Intelligence',
+      configured: false,
+      reachable: 'blocked',
+      status: 'missing-configuration',
+      message: 'Azure receipt OCR is not configured on the app server.',
+    }, 503)));
+    const { analyzeReceipt } = await loadReceiptService();
 
-    await expect(analyzeReceipt(makeSyntheticReceiptFile())).rejects.toThrow('Gemini responded, but the receipt response could not be parsed as JSON.');
+    await expect(analyzeReceipt(makeSyntheticReceiptFile())).rejects.toThrow(
+      'Azure receipt OCR is not configured on the app server.',
+    );
   });
 
-  it.each([
-    ['weeknight receipt', 'image/png'],
-    ['pantry restock receipt', 'image/jpeg'],
-    ['produce receipt', 'image/webp'],
-  ])('sends fixture-style synthetic receipt image: %s', async (name, mimeType) => {
-    const generateContent = vi.fn().mockResolvedValue({
-      text: JSON.stringify(mockReceiptResponse),
-    });
-    const { analyzeReceipt } = await loadReceiptService(generateContent);
+  it('normalizes non-JSON endpoint responses into a service error', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html>SPA fallback</html>', {
+      status: 200,
+      headers: { 'Content-Type': 'text/html' },
+    })));
+    const { analyzeReceipt } = await loadReceiptService();
 
-    await analyzeReceipt(new File([`${name} bytes`], `${name}.png`, { type: mimeType }));
+    await expect(analyzeReceipt(makeSyntheticReceiptFile())).rejects.toThrow(
+      'The secure receipt OCR endpoint is unavailable on this server.',
+    );
+  });
 
-    const request = generateContent.mock.calls[0][0];
-    expect(request.contents[0].parts[1].inlineData.mimeType).toBe(mimeType);
-    expect(request.contents[0].parts[1].inlineData.data).toEqual(expect.any(String));
+  it('checks Azure health through the same secure endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      provider: 'azure-document-intelligence',
+      providerLabel: 'Azure Document Intelligence',
+      configured: true,
+      reachable: 'ok',
+      status: 'ready',
+      message: 'Azure Document Intelligence is configured and reachable.',
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { checkReceiptOcrHealth } = await loadReceiptService();
+
+    const diagnostics = await checkReceiptOcrHealth();
+
+    expect(diagnostics.status).toBe('ready');
+    expect(diagnostics.providerLabel).toBe('Azure Document Intelligence');
+    expect(fetchMock).toHaveBeenCalledWith('/api/receipt-ocr', expect.objectContaining({ method: 'GET' }));
   });
 });

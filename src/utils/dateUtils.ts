@@ -7,6 +7,15 @@
  * so this ambiguity only affects manual entry. For unambiguous parsing,
  * prefer ISO format or use a date picker that returns YYYY-MM-DD.
  */
+function createLocalDate(year: number, month: number, day: number): Date | null {
+    const date = new Date(year, month - 1, day);
+    return date.getFullYear() === year
+        && date.getMonth() === month - 1
+        && date.getDate() === day
+        ? date
+        : null;
+}
+
 export function parseDate(dateStr: string): Date | null {
     if (!dateStr || dateStr === 'Unknown') return null;
 
@@ -14,8 +23,7 @@ export function parseDate(dateStr: string): Date | null {
         // Try parsing YYYY-MM-DD (ISO format) — preferred, unambiguous
         const isoMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
         if (isoMatch) {
-            const date = new Date(dateStr + 'T00:00:00');
-            return isNaN(date.getTime()) ? null : date;
+            return createLocalDate(Number(isoMatch[1]), Number(isoMatch[2]), Number(isoMatch[3]));
         }
 
         // Try DD-MMM-YYYY or DD MMM YYYY (e.g., "22 MAR 2026", "15-Jan-2025")
@@ -32,8 +40,7 @@ export function parseDate(dateStr: string): Date | null {
         if (slashMatch) {
             const [, month, day, year] = slashMatch;
             const fullYear = year.length === 2 ? `20${year}` : year;
-            const date = new Date(`${fullYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T00:00:00`);
-            return isNaN(date.getTime()) ? null : date;
+            return createLocalDate(Number(fullYear), Number(month), Number(day));
         }
 
         // Fallback: try native Date parsing
@@ -65,14 +72,24 @@ export function validateAndFormatDate(dateStr: string): string | null {
 /**
  * Calculates days until expiration
  */
-export function daysUntilExpiration(expirationDate: string): number {
-    const expDate = new Date(expirationDate);
-    const today = new Date();
+export function daysUntilExpiration(expirationDate: string, referenceDate = new Date()): number {
+    const expDate = parseDate(expirationDate);
+    if (!expDate) return Number.POSITIVE_INFINITY;
+    const today = new Date(referenceDate);
     today.setHours(0, 0, 0, 0);
     expDate.setHours(0, 0, 0, 0);
 
     const diffTime = expDate.getTime() - today.getTime();
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return Math.round(diffTime / (1000 * 60 * 60 * 24));
+}
+
+export function isWithinExpirationWindow(
+    expirationDate: string,
+    warningDays: number,
+    referenceDate = new Date(),
+): boolean {
+    const days = daysUntilExpiration(expirationDate, referenceDate);
+    return Number.isFinite(days) && days <= warningDays;
 }
 
 /**

@@ -8,7 +8,14 @@
 import { db } from '../db/database';
 import type { DbMealPlan, MealSlot, DbShoppingItem } from '../db/database';
 import type { InventoryItem } from '../types';
-import { generateRecipes, type Recipe } from './recipeService';
+import {
+    getRecipeRecommendations,
+    inventoryHasIngredient,
+    type RecipeRecommendation,
+} from './recipeService';
+import { getActiveCloudHouseholdId } from './cloudSessionService';
+import { isCloudConfigured } from './supabaseClient';
+import { belongsToActiveHousehold, localMutationFields } from './localMutationService';
 
 /**
  * Get the Monday of the current week as YYYY-MM-DD.
@@ -27,19 +34,24 @@ export function getCurrentWeekStart(): string {
  */
 export async function getOrCreateWeekPlan(weekStartDate?: string): Promise<DbMealPlan> {
     const weekStart = weekStartDate || getCurrentWeekStart();
+    const activeHouseholdId = getActiveCloudHouseholdId();
 
-    const existing = await db.mealPlans
+    const existing = (await db.mealPlans
         .where('weekStartDate')
         .equals(weekStart)
-        .first();
+        .toArray())
+        .find(plan => plan.isDeleted !== 1 && belongsToActiveHousehold(plan, isCloudConfigured, activeHouseholdId));
 
     if (existing) return existing;
 
+    const now = new Date().toISOString();
     const newPlan: DbMealPlan = {
         id: crypto.randomUUID(),
         weekStartDate: weekStart,
         meals: [],
-        createdAt: new Date().toISOString(),
+        createdAt: now,
+        isDeleted: 0,
+        ...localMutationFields(),
     };
 
     await db.mealPlans.put(newPlan);
@@ -64,7 +76,10 @@ export async function addMealToSlot(
 
     meals.push({ day, slot, recipeName, ingredients });
 
-    await db.mealPlans.update(planId, { meals });
+    await db.mealPlans.update(planId, {
+        meals,
+        ...localMutationFields(plan.cloudHouseholdId),
+    });
 }
 
 /**
@@ -79,7 +94,10 @@ export async function removeMealFromSlot(
     if (!plan) return;
 
     const meals = plan.meals.filter(m => !(m.day === day && m.slot === slot));
-    await db.mealPlans.update(planId, { meals });
+    await db.mealPlans.update(planId, {
+        meals,
+        ...localMutationFields(plan.cloudHouseholdId),
+    });
 }
 
 /**
@@ -106,14 +124,9 @@ export async function getMissingIngredients(plan: DbMealPlan): Promise<string[]>
         .where('isDeleted')
         .equals(0)
         .toArray();
-    const inventoryNames = new Set(items.map(i => i.name.toLowerCase().trim()));
-
-    // Filter missing — fuzzy match: ingredient contains inventory item name or vice versa
-    return planIngredients.filter(ingredient => {
-        return !Array.from(inventoryNames).some(name =>
-            ingredient.includes(name) || name.includes(ingredient)
-        );
-    });
+    const activeHouseholdId = getActiveCloudHouseholdId();
+    const householdItems = items.filter(item => belongsToActiveHousehold(item, isCloudConfigured, activeHouseholdId));
+    return planIngredients.filter(ingredient => !inventoryHasIngredient(ingredient, householdItems));
 }
 
 /**
@@ -124,7 +137,11 @@ export async function addMissingToShoppingList(plan: DbMealPlan): Promise<number
     if (missing.length === 0) return 0;
 
     // Check existing shopping list to avoid duplicates
-    const existingItems = await db.shoppingList.toArray();
+    const activeHouseholdId = getActiveCloudHouseholdId();
+    const existingItems = (await db.shoppingList.toArray()).filter(item => (
+        item.isDeleted !== 1
+        && belongsToActiveHousehold(item, isCloudConfigured, activeHouseholdId)
+    ));
     const existingNames = new Set(existingItems.map(i => i.name.toLowerCase().trim()));
 
     const newItems: DbShoppingItem[] = [];
@@ -138,6 +155,8 @@ export async function addMissingToShoppingList(plan: DbMealPlan): Promise<number
                 isChecked: false,
                 metadata: 'From meal plan',
                 category: 'other',
+                isDeleted: 0,
+                ...localMutationFields(),
             });
         }
     }
@@ -150,19 +169,17 @@ export async function addMissingToShoppingList(plan: DbMealPlan): Promise<number
 }
 
 /**
- * Generate AI recipe suggestions prioritizing expiring items for a meal slot.
+ * Rank catalogue recipes for a meal slot, prioritizing expiring inventory.
  */
 export async function suggestRecipesForSlot(
     items: InventoryItem[],
-): Promise<Recipe[]> {
-    // Sort by expiration — soonest first
-    const sorted = [...items].sort((a, b) =>
-        new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime()
-    );
-
-    // Use top expiring items for recipe generation
-    const topItems = sorted.slice(0, 10);
-    return generateRecipes(topItems);
+    slot?: MealSlot['slot'],
+): Promise<RecipeRecommendation[]> {
+    return getRecipeRecommendations(items, {
+        includeUnmatched: false,
+        limit: 6,
+        mealType: slot,
+    });
 }
 
 /**

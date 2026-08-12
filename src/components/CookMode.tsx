@@ -1,5 +1,21 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { X, ChevronLeft, ChevronRight, Check, Mic, RefreshCw, HelpCircle } from 'lucide-react';
+import {
+    Check,
+    ChevronLeft,
+    ChevronRight,
+    CookingPot,
+    Drumstick,
+    Droplets,
+    HelpCircle,
+    Leaf,
+    Lightbulb,
+    Mic,
+    Milk,
+    RefreshCw,
+    Utensils,
+    Wheat,
+    X,
+} from 'lucide-react';
 import type { Recipe } from '../services/recipeService';
 import { VoiceService, type VoiceCommand } from '../services/voiceService';
 import type { InventoryItem } from '../types';
@@ -24,21 +40,16 @@ const getProTip = (stepIndex: number): string | null => {
     return tips[stepIndex % tips.length] || null;
 };
 
-// Ingredient icons mapping
-const getIngredientIcon = (ingredient: string): string => {
+function IngredientGlyph({ ingredient }: { ingredient: string }) {
     const lower = ingredient.toLowerCase();
-    if (lower.includes('butter')) return '🧈';
-    if (lower.includes('onion')) return '🧅';
-    if (lower.includes('garlic')) return '🧄';
-    if (lower.includes('wine')) return '🍷';
-    if (lower.includes('rice')) return '🍚';
-    if (lower.includes('cheese')) return '🧀';
-    if (lower.includes('chicken')) return '🍗';
-    if (lower.includes('salt') || lower.includes('pepper')) return '🧂';
-    if (lower.includes('oil')) return '🫒';
-    if (lower.includes('tomato')) return '🍅';
-    return '🥄';
-};
+    if (lower.includes('chicken') || lower.includes('beef') || lower.includes('meat')) return <Drumstick aria-hidden="true" />;
+    if (lower.includes('butter') || lower.includes('cheese') || lower.includes('milk') || lower.includes('yogurt')) return <Milk aria-hidden="true" />;
+    if (lower.includes('rice') || lower.includes('bread') || lower.includes('flour')) return <Wheat aria-hidden="true" />;
+    if (lower.includes('oil') || lower.includes('wine')) return <Droplets aria-hidden="true" />;
+    if (lower.includes('onion') || lower.includes('garlic') || lower.includes('tomato') || lower.includes('avocado')) return <Leaf aria-hidden="true" />;
+    if (lower.includes('salt') || lower.includes('pepper')) return <CookingPot aria-hidden="true" />;
+    return <Utensils aria-hidden="true" />;
+}
 
 export function CookMode({ recipe, items, onClose }: CookModeProps) {
     const [currentStep, setCurrentStep] = useState(0);
@@ -74,7 +85,6 @@ export function CookMode({ recipe, items, onClose }: CookModeProps) {
                 console.error('Voice error:', error);
                 setVoiceStatus('Voice not available');
             },
-            useGoogleTTS: true, // Enable Google TTS for better quality
             autoReadSteps: true, // Auto-read steps when advancing
         });
         setVoiceService(service);
@@ -172,7 +182,9 @@ export function CookMode({ recipe, items, onClose }: CookModeProps) {
     }, [isLastStep, isFirstStep, currentStep, recipe.instructions, recipe.ingredients, voiceService, checkedIngredients, totalSteps]);
 
     // Keep ref in sync with latest handler
-    handleVoiceCommandRef.current = handleVoiceCommand;
+    useEffect(() => {
+        handleVoiceCommandRef.current = handleVoiceCommand;
+    }, [handleVoiceCommand]);
 
     const toggleIngredient = (index: number) => {
         const newChecked = new Set(checkedIngredients);
@@ -222,7 +234,7 @@ export function CookMode({ recipe, items, onClose }: CookModeProps) {
     const proTip = getProTip(currentStep);
 
     return (
-        <div className="fixed inset-0 bg-[var(--bg-primary)] z-50 flex flex-col">
+        <div className="market-cook-mode fixed inset-0 bg-[var(--bg-primary)] z-50 flex flex-col">
             {/* Header */}
             <header className="shrink-0">
                 {/* Top bar */}
@@ -281,6 +293,7 @@ export function CookMode({ recipe, items, onClose }: CookModeProps) {
                         <div key={index} className="relative mb-3">
                             <button
                                 onClick={() => toggleIngredient(index)}
+                                aria-label={`${checkedIngredients.has(index) ? 'Uncheck' : 'Check'} ${ingredient}`}
                                 className={`w-14 h-14 rounded-xl flex items-center justify-center transition-all inventory-card ${checkedIngredients.has(index)
                                     ? 'bg-emerald-500/20 border-2 border-[var(--accent-color)] glow-green'
                                     : 'bg-[var(--bg-tertiary)] border-2 border-transparent hover:border-[var(--border-color)]'
@@ -289,7 +302,7 @@ export function CookMode({ recipe, items, onClose }: CookModeProps) {
                                 {checkedIngredients.has(index) ? (
                                     <Check className="w-5 h-5 text-[var(--accent-color)]" />
                                 ) : (
-                                    <span className="text-2xl">{getIngredientIcon(ingredient)}</span>
+                                    <span className="cook-ingredient-glyph"><IngredientGlyph ingredient={ingredient} /></span>
                                 )}
                             </button>
 
@@ -297,6 +310,7 @@ export function CookMode({ recipe, items, onClose }: CookModeProps) {
                             {getSubstitutions(ingredient) && (
                                 <button
                                     onClick={() => handleSubstitutionClick(ingredient)}
+                                    aria-label={`Find substitute for ${ingredient}`}
                                     className="absolute -bottom-1 -right-1 w-7 h-7 bg-blue-500 rounded-full flex items-center justify-center shadow-lg inventory-card border border-blue-400"
                                     title={`Find substitute for ${ingredient}`}
                                 >
@@ -323,7 +337,7 @@ export function CookMode({ recipe, items, onClose }: CookModeProps) {
                     {proTip && (
                         <div className="mt-6 bg-green-900/20 border border-[var(--accent-color)]/30 rounded-xl p-5 max-w-md inventory-card">
                             <div className="flex items-start gap-3">
-                                <span className="text-3xl">💡</span>
+                                <span className="cook-tip-icon"><Lightbulb aria-hidden="true" /></span>
                                 <p className="text-[var(--accent-color)] text-sm font-medium leading-relaxed">{proTip}</p>
                             </div>
                         </div>
@@ -359,7 +373,7 @@ export function CookMode({ recipe, items, onClose }: CookModeProps) {
 
                 <button
                     onClick={isLastStep ? onClose : nextStep}
-                    className="flex-1 flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-bold bg-[var(--accent-color)] text-white hover:bg-emerald-600 transition-all action-button glow-green"
+                    className="cook-next-button flex-1 flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-bold bg-[var(--accent-color)] text-white hover:bg-emerald-600 transition-all action-button glow-green"
                 >
                     {isLastStep ? (
                         <>
@@ -423,8 +437,9 @@ export function CookMode({ recipe, items, onClose }: CookModeProps) {
                         </div>
 
                         <div className="p-4 bg-green-900/20 border border-[var(--accent-color)]/30 rounded-xl inventory-card">
-                            <p className="text-[var(--accent-color)] text-sm">
-                                💡 <strong className="font-bold">Tip:</strong> Press and hold the microphone button while speaking for best results. The app uses Google's AI to understand natural language!
+                            <p className="cook-modal-tip text-[var(--accent-color)] text-sm">
+                                <Lightbulb aria-hidden="true" />
+                                <span><strong className="font-bold">Tip:</strong> Press and hold the microphone button while speaking for best results.</span>
                             </p>
                         </div>
                     </div>
@@ -486,8 +501,9 @@ export function CookMode({ recipe, items, onClose }: CookModeProps) {
 
                         {/* Pro Tip */}
                         <div className="p-5 bg-blue-900/20 border border-blue-500/30 rounded-xl inventory-card">
-                            <p className="text-blue-400 text-sm font-medium">
-                                💡 <strong className="font-bold">Pro Tip:</strong> {substitution.proTip}
+                            <p className="cook-modal-tip text-blue-400 text-sm font-medium">
+                                <Lightbulb aria-hidden="true" />
+                                <span><strong className="font-bold">Pro tip:</strong> {substitution.proTip}</span>
                             </p>
                         </div>
                     </div>

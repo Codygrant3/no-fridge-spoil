@@ -39,10 +39,19 @@ export function makeCacheKey(input: string): string {
 }
 
 /**
- * Generate a cache key for an image file (based on name + size + lastModified).
+ * Generate a cache key for an image file from its content.
  */
-export function makeImageCacheKey(file: File): string {
-    return makeCacheKey(`vision:${file.name}:${file.size}:${file.lastModified}`);
+export async function makeImageCacheKey(file: File): Promise<string> {
+    try {
+        const buffer = await file.arrayBuffer();
+        const digest = await crypto.subtle.digest('SHA-256', buffer);
+        const hash = Array.from(new Uint8Array(digest))
+            .map(byte => byte.toString(16).padStart(2, '0'))
+            .join('');
+        return makeCacheKey(`vision:${hash}:${file.type}`);
+    } catch {
+        return makeCacheKey(`vision:${file.name}:${file.size}:${file.lastModified}:${file.type}`);
+    }
 }
 
 export async function makeReceiptImageCacheKey(file: File): Promise<string> {
