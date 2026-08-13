@@ -20,8 +20,39 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run verify:migrations
+      - run: npm run typecheck
       - run: npm run lint
-      - run: npm run build
+
+      - name: Resolve Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.playwright.outputs.version }}
+
+      - name: Build (with bundle analysis)
+        run: npm run build
+        env:
+          ANALYZE: '1'
+      - name: Upload bundle stats
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-stats
+          path: bundle-stats.html
+          if-no-files-found: ignore
+
       - run: npm run test:run
-      - run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright browser
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium
+      - name: Install Playwright system dependencies
+        run: npx playwright install-deps chromium
+
       - run: npm run test:e2e
+      - run: npm run test:e2e:pwa
+      - run: npm audit --audit-level=high

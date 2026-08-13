@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "vite",
     "dev:full": "npx vercel dev --listen 5173",
@@ -21,7 +24,7 @@
     "test:load": "tsx scripts/load-smoke.ts",
     "security:scan-dist": "tsx scripts/scan-build-secrets.ts",
     "performance:check-bundles": "tsx scripts/check-bundle-budgets.ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc -b --force",
     "verify:release": "npm run typecheck && npm run lint && npm run test:run && npm run build && npm run verify:migrations && npm run test:e2e && npm run test:e2e:pwa && npm audit --audit-level=high",
     "verify:release:cloud": "npm run verify:release && npm run verify:cloud && npm run test:e2e:cloud",
     "deploy:vercel": "npm run verify:release && npx vercel --prod"
@@ -61,6 +64,7 @@
     "globals": "^16.5.0",
     "jsdom": "^27.4.0",
     "postcss": "^8.5.6",
+    "rollup-plugin-visualizer": "^6.0.11",
     "tailwindcss": "^4.1.18",
     "tsx": "^4.23.1",
     "typescript": "~5.9.3",
