@@ -17,19 +17,19 @@ interface PublicAssetBudget {
 
 const assetsDirectory = join(process.cwd(), 'dist', 'assets');
 const budgets: BundleBudget[] = [
-  { label: 'main application', pattern: /^index-.*\.js$/, minBytes: 100 * 1024, maxBytes: 600 * 1024, required: true },
-  { label: 'lazy local OCR', pattern: /^ocr-.*\.js$/, maxBytes: 650 * 1024, required: true },
-  { label: 'barcode scanner', pattern: /^barcode-.*\.js$/, maxBytes: 400 * 1024, required: true },
-  { label: 'scan screen', pattern: /^Scan-.*\.js$/, maxBytes: 180 * 1024, required: true },
-  { label: 'profile screen', pattern: /^Profile-.*\.js$/, maxBytes: 90 * 1024, required: true },
-  { label: 'inventory screen', pattern: /^Inventory-.*\.js$/, maxBytes: 50 * 1024, required: true },
-  { label: 'shopping list screen', pattern: /^ShoppingList-.*\.js$/, maxBytes: 50 * 1024, required: true },
-  { label: 'application styles', pattern: /^index-.*\.css$/, maxBytes: 160 * 1024, required: true },
+  { label: 'main application', pattern: /^index-.*\.js$/, minBytes: 100 * 1024, maxBytes: 585 * 1024, required: true },
+  { label: 'lazy local OCR', pattern: /^ocr-.*\.js$/, maxBytes: 64 * 1024, required: true },
+  { label: 'barcode scanner', pattern: /^barcode-.*\.js$/, maxBytes: 360 * 1024, required: true },
+  { label: 'scan screen', pattern: /^Scan-.*\.js$/, maxBytes: 160 * 1024, required: true },
+  { label: 'profile screen', pattern: /^Profile-.*\.js$/, maxBytes: 72 * 1024, required: true },
+  { label: 'inventory screen', pattern: /^Inventory-.*\.js$/, maxBytes: 32 * 1024, required: true },
+  { label: 'shopping list screen', pattern: /^ShoppingList-.*\.js$/, maxBytes: 34 * 1024, required: true },
+  { label: 'application styles', pattern: /^index-.*\.css$/, maxBytes: 145 * 1024, required: true },
 ];
 
 const publicAssetBudgets: PublicAssetBudget[] = [
-  { label: 'notification icon', path: 'dist/pwa-192x192.png', maxBytes: 80 * 1024 },
-  { label: 'install icon', path: 'dist/pwa-512x512.png', maxBytes: 450 * 1024 },
+  { label: 'notification icon', path: 'dist/pwa-192x192.png', maxBytes: 64 * 1024 },
+  { label: 'install icon', path: 'dist/pwa-512x512.png', maxBytes: 400 * 1024 },
 ];
 
 async function main(): Promise<void> {

@@ -4,6 +4,7 @@ node_modules
 # Build output
 dist
 dist-ssr
+bundle-stats.html
 
 # Environment variables (NEVER commit real keys)
 .env

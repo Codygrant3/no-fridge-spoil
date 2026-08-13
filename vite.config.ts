@@ -1,7 +1,8 @@
 /// <reference types="vitest/config" />
 import type { IncomingMessage } from 'node:http'
-import { defineConfig, loadEnv, type Plugin } from 'vite'
+import { defineConfig, loadEnv, type Plugin, type PluginOption } from 'vite'
 import react from '@vitejs/plugin-react'
+import { visualizer } from 'rollup-plugin-visualizer'
 import { handleReceiptOcrRequest } from './api/receipt-ocr'
 import { handleReceiptJobsRequest } from './api/receipt-jobs'
 import { handleReceiptWorkerRequest } from './api/receipt-worker'
@@ -172,8 +173,19 @@ export default defineConfig(({ mode }) => {
     if (serverEnv[name]) process.env[name] ||= serverEnv[name]
   }
 
+  const plugins: PluginOption[] = [react(), receiptOcrDevApi()]
+  if (process.env.ANALYZE === '1') {
+    plugins.push(
+      visualizer({
+        filename: 'bundle-stats.html',
+        gzipSize: true,
+        brotliSize: true,
+      }),
+    )
+  }
+
   return {
-    plugins: [react(), receiptOcrDevApi()],
+    plugins,
     esbuild: mode === 'production'
       ? { drop: ['console', 'debugger'] }
       : undefined,
@@ -182,7 +194,7 @@ export default defineConfig(({ mode }) => {
       strictPort: false,
     },
     build: {
-      chunkSizeWarningLimit: 650,
+      chunkSizeWarningLimit: 585,
       rollupOptions: {
         output: {
           manualChunks: {
