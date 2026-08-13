@@ -1,0 +1,18 @@
+{
+  "name": "No Fridge Spoil",
+  "user": "ubuntu",
+  "install": "npm ci && npx playwright install --with-deps chromium",
+  "terminals": [
+    {
+      "name": "vite-dev",
+      "command": "npm run dev",
+      "description": "Vite dev server for the local-first PWA on http://127.0.0.1:5173 (device-only mode; includes /api middleware). Cloud/Supabase features require secrets and are optional."
+    }
+  ],
+  "ports": [
+    {
+      "name": "vite-dev",
+      "port": 5173
+    }
+  ]
+}
