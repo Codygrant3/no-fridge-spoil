@@ -102,6 +102,84 @@ describe('ReviewItems receipt resolution', () => {
     expect(screen.getByLabelText('ORG WHL MLK quantity')).toBeInTheDocument();
   });
 
+  it('keeps the original OCR name unless the user accepts a suggestion', async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+    render(
+      <ReviewItems
+        items={[shorthandItem]}
+        receiptMeta={{ storeName: 'Kroger', source: 'camera' }}
+        onConfirm={onConfirm}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const confirm = screen.getByRole('button', { name: /Confirm & Add 1 Item/i });
+    expect(confirm).toBeDisabled();
+    expect(screen.getByLabelText('Item name')).toHaveValue('ORG WHL MLK');
+    expect(screen.getByText('Organic Whole Milk')).toBeInTheDocument();
+
+    await user.click(confirm);
+    expect(mocks.addItem).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Keep receipt text' }));
+    expect(screen.getByLabelText('Item name')).toHaveValue('ORG WHL MLK');
+    expect(confirm).toBeEnabled();
+
+    await user.click(confirm);
+    await waitFor(() => expect(mocks.addItem).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'ORG WHL MLK' }),
+    ));
+    expect(mocks.addItem).not.toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Organic Whole Milk' }),
+    );
+    expect(mocks.saveAliases).not.toHaveBeenCalled();
+    expect(onConfirm).toHaveBeenCalled();
+  });
+
+  it('skips items missing an expiration date and only adds dated rows', async () => {
+    const user = userEvent.setup();
+    const datedItem: ScannedItem = {
+      id: '22222222-2222-4222-8222-222222222222',
+      name: 'Paper Towels',
+      originalName: 'PAPER TWL',
+      category: 'Grocery',
+      confidence: 'High',
+      expirationDate: '2026-09-01',
+      quantity: 1,
+    };
+    const undatedItem: ScannedItem = {
+      id: '33333333-3333-4333-8333-333333333333',
+      name: 'Dish Soap',
+      originalName: 'DSH SOAP',
+      category: 'Grocery',
+      confidence: 'High',
+      expirationDate: '',
+      quantity: 1,
+    };
+    const onConfirm = vi.fn();
+    render(
+      <ReviewItems
+        items={[datedItem, undatedItem]}
+        onConfirm={onConfirm}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/1 item missing expiration date and will be skipped/i)).toBeInTheDocument();
+    const confirm = screen.getByRole('button', { name: /Confirm & Add 1 Item/i });
+    expect(confirm).toBeEnabled();
+
+    await user.click(confirm);
+    await waitFor(() => expect(mocks.addItem).toHaveBeenCalledTimes(1));
+    expect(mocks.addItem).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'Paper Towels',
+      expirationDate: '2026-09-01',
+    }));
+    expect(mocks.addItem).not.toHaveBeenCalledWith(expect.objectContaining({ name: 'Dish Soap' }));
+    expect(screen.getByText(/Added 1 item\. 1 item without expiration date was skipped/i)).toBeInTheDocument();
+  });
+
   it('opens duplicate review as a keyboard dialog and restores focus on Escape', async () => {
     mocks.inventoryItems.push({ id: 'existing-milk', name: 'ORG WHL MLK' });
     const user = userEvent.setup();
