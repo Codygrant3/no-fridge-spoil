@@ -1,6 +1,6 @@
 # No Fridge Spoil: Cursor Project Handover
 
-Last updated: 2026-08-12
+Last updated: 2026-08-21
 
 Repository: `C:\Users\chris\No Fridge Spoil`
 
@@ -13,16 +13,15 @@ shopping lists, alerts, meal plans, recipes, household profiles, and receipt sca
 without a cloud account. When Supabase is configured and a user signs in, IndexedDB remains the
 offline cache and a durable outbox synchronizes household data to Supabase.
 
-The current working tree is substantially newer than Git `HEAD` and is intentionally dirty.
-At handover time:
+The modern platform tree is on `main` (checkpoint `7909077`, CI-parity merge `0c8fbf4`).
+At the 2026-08-21 IPIE refresh:
 
-- Git `HEAD` is `12fa4cd95a7821f9e5188ae0346492c24374b076` from 2026-05-31.
-- The current redesign, account system, cloud sync, receipt provider replacement, server APIs,
-  migrations, hardening, and much of the test suite are uncommitted.
+- Hosted CI now runs typecheck, PWA e2e, and `npm audit --audit-level=high` (PR #2).
+- Draft PRs #3–#5 cover receipt recovery, shorthand expansion, and provider-neutral OCR diagnostics.
 - Do not reset, clean, restore, or check out files to make the tree look tidy.
-- Do not assume an untracked file is disposable. Many untracked files are required production
-  source files.
+- Do not assume an untracked file is disposable.
 - Inspect `git status --short` before editing and preserve changes outside the requested scope.
+- Continuing work follows `.cursor/rules/ipie-loop.mdc` and `docs/IPIE_LOOP.md`.
 
 The canonical source of truth is the live source plus passing tests. Some historical documents
 describe work as pending even though it has since been implemented. See Section 17.
@@ -596,9 +595,10 @@ export, guarded deletion, anonymization, and retention cleanup.
 
 ### CI caveat
 
-`.github/workflows/ci.yml` runs migration verification, lint, build, unit tests, and device E2E on
-Node 22. It does not currently run the PWA suite, cloud foundation suite, cloud E2E, or an explicit
-`npm audit`. Local full release verification is therefore stronger than hosted CI.
+`.github/workflows/ci.yml` on Node 22 now runs migration verification, typecheck, lint, build,
+unit tests, device E2E, production PWA E2E, and `npm audit --audit-level=high`. It still does not
+run the cloud foundation suite or cloud E2E. Local `verify:release:cloud` remains stronger when
+Supabase is available.
 
 ## 15. Deployment
 
@@ -680,21 +680,14 @@ PaddleOCR worker.
 
 ### P0: Preserve and checkpoint the current tree
 
-The largest operational risk is not a failing test. It is the uncommitted state. Before broad new
-development, review the full diff, separate generated/history artifacts from production source,
-and create a deliberate checkpoint commit or branch. Do not do this by blindly staging everything:
-the tree includes documents, screenshots, deleted legacy media, and an Office lock file deletion.
+Done on `main` (`7909077` publish, later CI-parity merges). If a dirty tree reappears, inspect
+`git status --short` and do not blindly stage or clean it.
 
 ### P1: Strengthen hosted CI
 
-Bring CI closer to the local release contract:
-
-- Add `npm run typecheck` explicitly.
-- Add `npm audit --audit-level=high`.
-- Run production PWA E2E after the build.
-- Add a disposable Supabase service job for migrations/cloud verification if CI secrets and Docker
-  service constraints are acceptable.
-- Consider a Node version matrix or declare the supported engine.
+Device-side hosted CI parity landed in PR #2 (`typecheck`, PWA e2e, high-severity audit, `engines`).
+Still open: a disposable Supabase job for cloud foundation / cloud E2E if secrets and Docker
+service constraints are acceptable.
 
 ### P1: Build a real receipt benchmark
 
@@ -713,15 +706,16 @@ Keep fallback disabled until the comparison is defensible.
 
 ### P1: Improve unattended receipt recovery
 
-Vercel Hobby cron is daily. For production scale, move recovery to a more frequent durable trigger,
-such as Supabase Cron/Edge Functions or a queue service. Preserve leasing, bounded batches,
-idempotency, terminal cleanup, and project budget checks.
+Draft PR #3 adds client-side retry of the private `receiptQueue` while a signed-in household is
+online. Vercel Hobby cron remains daily last-resort recovery. Still open: persist/resume server
+`jobId` to avoid a second quota reservation, and a more frequent durable server trigger
+(Supabase Cron/Edge or a queue) that keeps leasing, bounded batches, idempotency, cleanup, and
+budget checks.
 
 ### P2: Remove provider-label assumptions in client diagnostics
 
-`src/services/receiptOCRService.ts` still uses Azure as its default diagnostic label in several
-fallback/error paths even though the server can select Mistral. Normalize diagnostics around the
-provider returned by the server so UI health text never misidentifies the active provider.
+Draft PR #5 makes client/API fallbacks provider-neutral and prefers the server-returned identity.
+Keep new diagnostic copy on that contract; do not hardcode Azure.
 
 ### P2: Split maintenance hotspots
 
@@ -817,9 +811,9 @@ For the next Cursor session:
 
 ## 21. Handover Status
 
-The project is currently a functioning, comprehensively tested local-first application with an
-optional Supabase collaboration backend and provider-neutral server OCR. The last full release and
-cloud gate passed. The immediate engineering concern is preserving and checkpointing the modern
-dirty tree, then strengthening hosted CI and building a real receipt-image benchmark before broad
-production rollout.
+The project is a functioning, tested local-first application with optional Supabase collaboration
+and provider-neutral server OCR. `main` is checkpointed and hosted device CI matches the local
+device release gate. Continuing work uses the IPIE loop. Immediate product concerns: merge or
+iterate draft PRs #3–#5, then a consented receipt-image benchmark and durable server-side
+recovery before broad production rollout.
 
