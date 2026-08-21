@@ -66,7 +66,7 @@ File ownership is in `docs/superpowers/plans/2026-08-21-ipie-cycle-1.md`.
 
 **Evaluate:** Hosted `verify` plus Vercel passed on [#9](https://github.com/Codygrant3/no-fridge-spoil/pull/9) and [#10](https://github.com/Codygrant3/no-fridge-spoil/pull/10). Ledger [#6](https://github.com/Codygrant3/no-fridge-spoil/pull/6) re-ran green. Not merged.
 
-## Cycle 3 — 2026-08-21 (in progress)
+## Cycle 3 — 2026-08-21 (closed)
 
 **Inspect:** Open drafts now also cover Recipes and ReviewItems tests. Remaining disjoint gaps: no CookMode page-level tests (only CookTimer + open-from-Recipes); Eat This Tonight uses `parseInt(prepTime)` instead of `prepMinutes`/`cookMinutes` and has no tests.
 
@@ -81,4 +81,16 @@ File ownership is in `docs/superpowers/plans/2026-08-21-ipie-cycle-1.md`.
 | Eat This Tonight minutes | [#11](https://github.com/Codygrant3/no-fridge-spoil/pull/11) | widget + tests |
 | Cook Mode tests | [#12](https://github.com/Codygrant3/no-fridge-spoil/pull/12) | `CookMode.test.tsx`, voice-help close label |
 
-**Evaluate:** [#11](https://github.com/Codygrant3/no-fridge-spoil/pull/11) `verify` still running at ledger write. [#12](https://github.com/Codygrant3/no-fridge-spoil/pull/12) just opened. Not merged.
+**Evaluate:** Hosted `verify` plus Vercel passed on [#11](https://github.com/Codygrant3/no-fridge-spoil/pull/11) and [#12](https://github.com/Codygrant3/no-fridge-spoil/pull/12). Ledger [#6](https://github.com/Codygrant3/no-fridge-spoil/pull/6) re-ran green. Not merged.
+
+## Cycle 4 — 2026-08-21 (in progress)
+
+**Inspect:** Ten green drafts occupy most page/test files. Still free: `substitutionService` (no tests; fuzzy `includes` matching), Alerts beyond the one timer test (shopping add + calendar download), if shoppingActionService is mocked.
+
+**Plan:**
+1. Substitution service characterization (exact match, inventory sort). Do not widen fuzzy matching.
+2. Alerts: add-to-list feedback and calendar reminder download, mocking `shoppingActionService`.
+
+**Implement:** pending cloud agents.
+
+**Evaluate:** pending.
