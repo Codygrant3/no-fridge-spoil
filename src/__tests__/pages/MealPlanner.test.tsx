@@ -88,27 +88,31 @@ describe('MealPlanner', () => {
     expect(screen.getByRole('button', { name: 'Add snack for Sun' })).toBeInTheDocument();
   });
 
+  function openLunchPicker() {
+    const emptySlot = screen.getByRole('button', { name: 'Add lunch for Mon' });
+    emptySlot.focus();
+    fireEvent.click(emptySlot);
+    expect(screen.getByRole('dialog', { name: 'Add lunch' })).toBeInTheDocument();
+    return emptySlot;
+  }
+
   it('opens the recipe picker and moves focus when an empty slot is activated', async () => {
     await renderPlanner();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add lunch for Mon' }));
+    openLunchPicker();
 
-    expect(screen.getByRole('dialog', { name: 'Add lunch' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Close meal picker' })).toHaveFocus();
   });
 
   it('hides the picker and restores focus on Escape or Close', async () => {
     await renderPlanner();
-    const emptySlot = screen.getByRole('button', { name: 'Add lunch for Mon' });
 
-    fireEvent.click(emptySlot);
-    expect(screen.getByRole('dialog', { name: 'Add lunch' })).toBeInTheDocument();
+    const emptySlot = openLunchPicker();
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByRole('dialog', { name: 'Add lunch' })).not.toBeInTheDocument();
     expect(emptySlot).toHaveFocus();
 
-    fireEvent.click(emptySlot);
-    expect(screen.getByRole('dialog', { name: 'Add lunch' })).toBeInTheDocument();
+    openLunchPicker();
     fireEvent.click(screen.getByRole('button', { name: 'Close meal picker' }));
     expect(screen.queryByRole('dialog', { name: 'Add lunch' })).not.toBeInTheDocument();
     expect(emptySlot).toHaveFocus();
