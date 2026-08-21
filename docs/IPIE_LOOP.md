@@ -21,7 +21,7 @@ The loop rule lives in `.cursor/rules/ipie-loop.mdc`.
 
 Still open from handover: real receipt-image benchmark, more frequent durable server recovery, hotspot splits, hardware QA, PaddleOCR evidence.
 
-## Cycle 1 — 2026-08-21 (in progress)
+## Cycle 1 — 2026-08-21 (closed)
 
 **Inspect:**
 
@@ -47,4 +47,16 @@ File ownership is in `docs/superpowers/plans/2026-08-21-ipie-cycle-1.md`.
 | Meal Planner tests | [#7](https://github.com/Codygrant3/no-fridge-spoil/pull/7) | `src/__tests__/pages/MealPlanner.test.tsx` only |
 | Shopping categories | [#8](https://github.com/Codygrant3/no-fridge-spoil/pull/8) | `ShoppingList.tsx`, export `shoppingCategory`, page tests |
 
-**Evaluate:** [#6](https://github.com/Codygrant3/no-fridge-spoil/pull/6) hosted `verify` + Vercel passed. [#7](https://github.com/Codygrant3/no-fridge-spoil/pull/7) Vercel passed; `verify` still running at ledger write. [#8](https://github.com/Codygrant3/no-fridge-spoil/pull/8) opened after push; CI not yet terminal. Not merged.
+**Evaluate:** Hosted `verify` plus Vercel passed on [#6](https://github.com/Codygrant3/no-fridge-spoil/pull/6), [#7](https://github.com/Codygrant3/no-fridge-spoil/pull/7), and [#8](https://github.com/Codygrant3/no-fridge-spoil/pull/8) (`gh pr checks` 2026-08-21). Not merged.
+
+## Cycle 2 — 2026-08-21 (in progress)
+
+**Inspect:** Open drafts occupy recovery, resolver, OCR, shopping list, meal planner tests, and loop docs. Remaining disjoint gaps: no Recipes page tests (service-only coverage); ReviewItems tests do not lock skip-without-expiration or keep-original-name.
+
+**Plan:**
+1. Recipes page characterization: For you / Make now / Catalogue, meal+diet filters, search, opening Cook Mode.
+2. ReviewItems characterization: missing expiration skips confirm; declining a suggestion keeps `originalName`.
+
+**Implement:** pending cloud agents.
+
+**Evaluate:** pending.
