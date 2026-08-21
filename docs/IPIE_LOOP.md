@@ -49,7 +49,7 @@ File ownership is in `docs/superpowers/plans/2026-08-21-ipie-cycle-1.md`.
 
 **Evaluate:** Hosted `verify` plus Vercel passed on [#6](https://github.com/Codygrant3/no-fridge-spoil/pull/6), [#7](https://github.com/Codygrant3/no-fridge-spoil/pull/7), and [#8](https://github.com/Codygrant3/no-fridge-spoil/pull/8) (`gh pr checks` 2026-08-21). Not merged.
 
-## Cycle 2 — 2026-08-21 (in progress)
+## Cycle 2 — 2026-08-21 (closed)
 
 **Inspect:** Open drafts occupy recovery, resolver, OCR, shopping list, meal planner tests, and loop docs. Remaining disjoint gaps: no Recipes page tests (service-only coverage); ReviewItems tests do not lock skip-without-expiration or keep-original-name.
 
@@ -74,6 +74,11 @@ File ownership is in `docs/superpowers/plans/2026-08-21-ipie-cycle-1.md`.
 1. CookMode characterization: exit, next/prev step, ingredient check.
 2. Eat This Tonight: prefer numeric minutes for the <30 min pick; add widget tests.
 
-**Implement:** pending cloud agents.
+**Implement:**
 
-**Evaluate:** pending.
+| Agent | Draft PR | Files |
+| --- | --- | --- |
+| Eat This Tonight minutes | [#11](https://github.com/Codygrant3/no-fridge-spoil/pull/11) | widget + tests |
+| Cook Mode tests | [#12](https://github.com/Codygrant3/no-fridge-spoil/pull/12) | `CookMode.test.tsx`, voice-help close label |
+
+**Evaluate:** [#11](https://github.com/Codygrant3/no-fridge-spoil/pull/11) `verify` still running at ledger write. [#12](https://github.com/Codygrant3/no-fridge-spoil/pull/12) just opened. Not merged.
