@@ -19,6 +19,7 @@ import {
 import { db, type DbShoppingItem } from '../db/database';
 import { useOptionalAuth } from '../context/AuthContext';
 import { belongsToActiveHousehold, localMutationFields } from '../services/localMutationService';
+import { shoppingCategory } from '../services/shoppingActionService';
 
 const CATEGORIES = {
     produce: { label: 'Produce', tone: 'produce' },
@@ -48,7 +49,6 @@ export function ShoppingList() {
     const [pendingUndo, setPendingUndo] = useState<DbShoppingItem[] | null>(null);
     const menuTriggerRef = useRef<HTMLButtonElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
-    const selectedCategory = 'other' as const;
 
     const items = useLiveQuery(
         () => db.shoppingList.orderBy('addedAt').reverse().toArray().then(records => records.filter(item => (
@@ -96,7 +96,7 @@ export function ShoppingList() {
             quantity: 1,
             addedAt: new Date().toISOString(),
             isChecked: false,
-            category: selectedCategory,
+            category: shoppingCategory(itemName),
             isDeleted: 0,
             ...localMutationFields(),
         });
@@ -304,6 +304,7 @@ export function ShoppingList() {
                         onChange={event => setNewItemName(event.target.value)}
                         onKeyDown={event => event.key === 'Enter' && void addItem()}
                         placeholder="Add milk, avocados, bread..."
+                        aria-label="Item name"
                     />
                 </label>
                 <button type="button" className="shopping-add-button" onClick={() => void addItem()} aria-label="Add item">
