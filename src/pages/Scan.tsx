@@ -950,7 +950,7 @@ export function Scan({ onBack }: ScanProps) {
                             disabled={isCheckingReceiptHealth || isScanning}
                             className="mb-3 w-full py-2 rounded-xl bg-blue-500/15 border border-blue-400/30 text-blue-200 text-xs font-bold disabled:opacity-50"
                         >
-                            {isCheckingReceiptHealth ? 'Checking Azure...' : 'Check OCR health'}
+                            {isCheckingReceiptHealth ? 'Checking OCR...' : 'Check OCR health'}
                         </button>
                         <div className="grid grid-cols-5 gap-1.5">
                             {Object.entries(receiptSteps).map(([step, status]) => (

@@ -123,8 +123,8 @@ export interface QueuedReceiptScan {
     lastError?: string;
 }
 
-const PROVIDER = 'azure-document-intelligence';
-const PROVIDER_LABEL = 'Azure Document Intelligence';
+const FALLBACK_PROVIDER = 'receipt-ocr';
+const FALLBACK_PROVIDER_LABEL = 'Receipt OCR';
 const RECEIPT_OCR_API_URL = import.meta.env.VITE_RECEIPT_OCR_API_URL?.trim() || '/api/receipt-ocr';
 const RECEIPT_JOBS_API_URL = import.meta.env.VITE_RECEIPT_JOBS_API_URL?.trim() || '/api/receipt-jobs';
 const LEGACY_QUEUED_RECEIPTS_KEY = 'no-fridge-spoil:queued-receipts';
@@ -222,8 +222,8 @@ const receiptAnalysisSchema = z.object({
 });
 
 const receiptDiagnosticsSchema = z.object({
-    provider: z.string().default(PROVIDER),
-    providerLabel: z.string().default(PROVIDER_LABEL),
+    provider: z.string().min(1).default(FALLBACK_PROVIDER),
+    providerLabel: z.string().min(1).default(FALLBACK_PROVIDER_LABEL),
     configured: z.boolean(),
     reachable: z.enum(['unknown', 'ok', 'blocked']),
     status: receiptOcrStatusSchema,
@@ -253,14 +253,32 @@ class ReceiptOcrServiceError extends Error {
     }
 }
 
+function fallbackProviderIdentity(): Pick<ReceiptDiagnostics, 'provider' | 'providerLabel'> {
+    return {
+        provider: FALLBACK_PROVIDER,
+        providerLabel: FALLBACK_PROVIDER_LABEL,
+    };
+}
+
+function providerIdentityFromPayload(payload: unknown): Pick<ReceiptDiagnostics, 'provider' | 'providerLabel'> {
+    if (!payload || typeof payload !== 'object') return fallbackProviderIdentity();
+    const record = payload as Record<string, unknown>;
+    const provider = typeof record.provider === 'string' && record.provider.trim()
+        ? record.provider.trim()
+        : FALLBACK_PROVIDER;
+    const providerLabel = typeof record.providerLabel === 'string' && record.providerLabel.trim()
+        ? record.providerLabel.trim()
+        : FALLBACK_PROVIDER_LABEL;
+    return { provider, providerLabel };
+}
+
 export function getReceiptOcrDiagnostics(): ReceiptDiagnostics {
     return {
-        provider: PROVIDER,
-        providerLabel: PROVIDER_LABEL,
+        ...fallbackProviderIdentity(),
         configured: false,
         reachable: 'unknown',
         status: 'unchecked',
-        message: 'Receipt OCR runs through the secure app service. Check health to verify Azure setup.',
+        message: 'Receipt OCR runs through the secure app service. Check health to verify setup.',
     };
 }
 
@@ -279,8 +297,7 @@ async function readJsonResponse(response: Response): Promise<unknown> {
     const contentType = response.headers.get('content-type') || '';
     if (!contentType.toLowerCase().includes('application/json')) {
         throw new ReceiptOcrServiceError({
-            provider: PROVIDER,
-            providerLabel: PROVIDER_LABEL,
+            ...fallbackProviderIdentity(),
             configured: false,
             reachable: 'blocked',
             status: 'service-error',
@@ -292,8 +309,7 @@ async function readJsonResponse(response: Response): Promise<unknown> {
         return await response.json();
     } catch {
         throw new ReceiptOcrServiceError({
-            provider: PROVIDER,
-            providerLabel: PROVIDER_LABEL,
+            ...fallbackProviderIdentity(),
             configured: true,
             reachable: 'ok',
             status: 'malformed-response',
@@ -306,6 +322,7 @@ function diagnosticsFromResponse(payload: unknown, response: Response): ReceiptD
     const parsed = receiptDiagnosticsSchema.safeParse(payload);
     if (parsed.success) return parsed.data;
 
+    const identity = providerIdentityFromPayload(payload);
     const responseMessage = payload && typeof payload === 'object' && 'message' in payload
         && typeof (payload as { message?: unknown }).message === 'string'
         ? (payload as { message: string }).message
@@ -313,8 +330,7 @@ function diagnosticsFromResponse(payload: unknown, response: Response): ReceiptD
 
     if (response.status === 401 || response.status === 403) {
         return {
-            provider: PROVIDER,
-            providerLabel: PROVIDER_LABEL,
+            ...identity,
             configured: true,
             reachable: 'blocked',
             status: 'account-required',
@@ -334,8 +350,7 @@ function diagnosticsFromResponse(payload: unknown, response: Response): ReceiptD
                 : 'unknown-error';
 
     return {
-        provider: PROVIDER,
-        providerLabel: PROVIDER_LABEL,
+        ...identity,
         configured: true,
         reachable: 'blocked',
         status,
@@ -363,8 +378,7 @@ export function classifyReceiptOcrError(error: unknown): ReceiptDiagnostics {
 
     if (error instanceof CloudSessionError) {
         return {
-            provider: PROVIDER,
-            providerLabel: PROVIDER_LABEL,
+            ...fallbackProviderIdentity(),
             configured: error.code !== 'not-configured',
             reachable: 'blocked',
             status: error.code === 'not-configured' ? 'account-service-error' : 'account-required',
@@ -377,41 +391,37 @@ export function classifyReceiptOcrError(error: unknown): ReceiptDiagnostics {
 
     if (lower.includes('not configured') || lower.includes('missing configuration')) {
         return {
-            provider: PROVIDER,
-            providerLabel: PROVIDER_LABEL,
+            ...fallbackProviderIdentity(),
             configured: false,
             reachable: 'blocked',
             status: 'missing-configuration',
-            message: 'Azure receipt OCR is not configured on the app server.',
+            message: 'Receipt OCR is not configured on the app server.',
         };
     }
 
     if (lower.includes('credential') || lower.includes('401') || lower.includes('403')) {
         return {
-            provider: PROVIDER,
-            providerLabel: PROVIDER_LABEL,
+            ...fallbackProviderIdentity(),
             configured: false,
             reachable: 'blocked',
             status: 'invalid-credentials',
-            message: 'Azure rejected the Document Intelligence credentials.',
+            message: 'Receipt OCR rejected the configured credentials.',
         };
     }
 
     if (lower.includes('quota') || lower.includes('rate') || lower.includes('429')) {
         return {
-            provider: PROVIDER,
-            providerLabel: PROVIDER_LABEL,
+            ...fallbackProviderIdentity(),
             configured: true,
             reachable: 'blocked',
             status: 'quota-or-rate-limit',
-            message: 'Azure is reachable, but quota or rate limits blocked this receipt scan.',
+            message: 'Receipt OCR is reachable, but quota or rate limits blocked this receipt scan.',
         };
     }
 
     if (lower.includes('json') || lower.includes('parse') || lower.includes('malformed') || lower.includes('validation')) {
         return {
-            provider: PROVIDER,
-            providerLabel: PROVIDER_LABEL,
+            ...fallbackProviderIdentity(),
             configured: true,
             reachable: 'ok',
             status: 'malformed-response',
@@ -427,8 +437,7 @@ export function classifyReceiptOcrError(error: unknown): ReceiptDiagnostics {
         || lower.includes('timeout')
     ) {
         return {
-            provider: PROVIDER,
-            providerLabel: PROVIDER_LABEL,
+            ...fallbackProviderIdentity(),
             configured: true,
             reachable: 'blocked',
             status: 'network-error',
@@ -438,8 +447,7 @@ export function classifyReceiptOcrError(error: unknown): ReceiptDiagnostics {
 
     if (lower.includes('unavailable') || lower.includes('service')) {
         return {
-            provider: PROVIDER,
-            providerLabel: PROVIDER_LABEL,
+            ...fallbackProviderIdentity(),
             configured: false,
             reachable: 'blocked',
             status: 'service-error',
@@ -448,8 +456,7 @@ export function classifyReceiptOcrError(error: unknown): ReceiptDiagnostics {
     }
 
     return {
-        provider: PROVIDER,
-        providerLabel: PROVIDER_LABEL,
+        ...fallbackProviderIdentity(),
         configured: false,
         reachable: 'unknown',
         status: 'unknown-error',
@@ -526,8 +533,7 @@ function jobFailureDiagnostics(error: { status?: string; message?: string } | un
     const status = error?.status;
     const knownStatus = receiptOcrStatusSchema.safeParse(status);
     return {
-        provider: PROVIDER,
-        providerLabel: PROVIDER_LABEL,
+        ...providerIdentityFromPayload(error),
         configured: status !== 'missing-configuration' && status !== 'invalid-credentials',
         reachable: status === 'malformed-response' ? 'ok' : 'blocked',
         status: knownStatus.success ? knownStatus.data : 'service-error',
@@ -568,8 +574,7 @@ async function processReceiptJob(
         if (!parsed.success) {
             if (!response.ok) throw new ReceiptOcrServiceError(diagnosticsFromResponse(payload, response));
             throw new ReceiptOcrServiceError({
-                provider: PROVIDER,
-                providerLabel: PROVIDER_LABEL,
+                ...providerIdentityFromPayload(payload),
                 configured: true,
                 reachable: 'ok',
                 status: 'malformed-response',
@@ -597,8 +602,7 @@ async function processReceiptJob(
     }
 
     throw new ReceiptOcrServiceError({
-        provider: PROVIDER,
-        providerLabel: PROVIDER_LABEL,
+        ...fallbackProviderIdentity(),
         configured: true,
         reachable: 'blocked',
         status: 'network-error',

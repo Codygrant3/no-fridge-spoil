@@ -35,8 +35,10 @@ describe('receipt OCR API configuration', () => {
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(body).toMatchObject({
       provider: 'azure-document-intelligence',
+      providerLabel: 'Azure Document Intelligence',
       configured: false,
       status: 'missing-configuration',
+      message: 'Azure Document Intelligence is not configured on the app server.',
     });
   });
 

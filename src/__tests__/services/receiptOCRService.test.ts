@@ -230,12 +230,12 @@ describe('receiptOCRService', () => {
       configured: false,
       reachable: 'blocked',
       status: 'missing-configuration',
-      message: 'Azure receipt OCR is not configured on the app server.',
+      message: 'Azure Document Intelligence is not configured on the app server.',
     }, 503)));
     const { analyzeReceipt } = await loadReceiptService();
 
     await expect(analyzeReceipt(makeSyntheticReceiptFile())).rejects.toThrow(
-      'Azure receipt OCR is not configured on the app server.',
+      'Azure Document Intelligence is not configured on the app server.',
     );
   });
 
@@ -252,7 +252,50 @@ describe('receiptOCRService', () => {
     );
   });
 
-  it('checks Azure health through the same secure endpoint', async () => {
+  it('uses provider-neutral fallback diagnostics until the server identifies the provider', async () => {
+    const { getReceiptOcrDiagnostics, classifyReceiptOcrError } = await loadReceiptService();
+
+    const fallback = getReceiptOcrDiagnostics();
+    expect(fallback.provider).toBe('receipt-ocr');
+    expect(fallback.providerLabel).toBe('Receipt OCR');
+    expect(fallback.message).not.toMatch(/Azure|Mistral/i);
+
+    const classified = classifyReceiptOcrError(new Error('missing configuration'));
+    expect(classified.provider).toBe('receipt-ocr');
+    expect(classified.providerLabel).toBe('Receipt OCR');
+    expect(classified.status).toBe('missing-configuration');
+    expect(classified.message).toBe('Receipt OCR is not configured on the app server.');
+    expect(classified.message).not.toMatch(/Azure|Mistral/i);
+
+    const credentialError = classifyReceiptOcrError(new Error('401 credential'));
+    expect(credentialError.providerLabel).toBe('Receipt OCR');
+    expect(credentialError.message).not.toMatch(/Azure|Mistral/i);
+  });
+
+  it('preserves a Mistral health payload from the server', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      provider: 'mistral-ocr',
+      providerLabel: 'Mistral OCR',
+      configured: true,
+      reachable: 'ok',
+      status: 'ready',
+      message: 'Mistral OCR is configured and reachable.',
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { checkReceiptOcrHealth } = await loadReceiptService();
+
+    const diagnostics = await checkReceiptOcrHealth();
+
+    expect(diagnostics).toMatchObject({
+      provider: 'mistral-ocr',
+      providerLabel: 'Mistral OCR',
+      status: 'ready',
+      message: 'Mistral OCR is configured and reachable.',
+    });
+    expect(fetchMock).toHaveBeenCalledWith('/api/receipt-ocr', expect.objectContaining({ method: 'GET' }));
+  });
+
+  it('preserves an Azure health payload from the server', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
       provider: 'azure-document-intelligence',
       providerLabel: 'Azure Document Intelligence',
@@ -267,7 +310,34 @@ describe('receiptOCRService', () => {
     const diagnostics = await checkReceiptOcrHealth();
 
     expect(diagnostics.status).toBe('ready');
+    expect(diagnostics.provider).toBe('azure-document-intelligence');
     expect(diagnostics.providerLabel).toBe('Azure Document Intelligence');
     expect(fetchMock).toHaveBeenCalledWith('/api/receipt-ocr', expect.objectContaining({ method: 'GET' }));
+  });
+
+  it('preserves provider identity from a failed receipt job payload', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ jobId: receiptJobId, status: 'queued', retryAfterMs: 1 }, 202))
+      .mockResolvedValueOnce(jsonResponse({
+        jobId: receiptJobId,
+        status: 'failed',
+        error: {
+          status: 'quota-or-rate-limit',
+          message: 'Mistral OCR is reachable, but quota or rate limits blocked this receipt scan.',
+          provider: 'mistral-ocr',
+          providerLabel: 'Mistral OCR',
+        },
+      })));
+    const { analyzeReceipt } = await loadReceiptService();
+
+    await expect(analyzeReceipt(makeSyntheticReceiptFile())).rejects.toMatchObject({
+      diagnostics: {
+        provider: 'mistral-ocr',
+        providerLabel: 'Mistral OCR',
+        status: 'quota-or-rate-limit',
+        message: 'Mistral OCR is reachable, but quota or rate limits blocked this receipt scan.',
+      },
+    });
   });
 });
