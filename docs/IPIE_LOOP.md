@@ -83,7 +83,7 @@ File ownership is in `docs/superpowers/plans/2026-08-21-ipie-cycle-1.md`.
 
 **Evaluate:** Hosted `verify` plus Vercel passed on [#11](https://github.com/Codygrant3/no-fridge-spoil/pull/11) and [#12](https://github.com/Codygrant3/no-fridge-spoil/pull/12). Ledger [#6](https://github.com/Codygrant3/no-fridge-spoil/pull/6) re-ran green. Not merged.
 
-## Cycle 4 — 2026-08-21 (in progress)
+## Cycle 4 — 2026-08-21 (closed)
 
 **Inspect:** Ten green drafts occupy most page/test files. Still free: `substitutionService` (no tests; fuzzy `includes` matching), Alerts beyond the one timer test (shopping add + calendar download), if shoppingActionService is mocked.
 
@@ -98,4 +98,8 @@ File ownership is in `docs/superpowers/plans/2026-08-21-ipie-cycle-1.md`.
 | Substitution tests | [#13](https://github.com/Codygrant3/no-fridge-spoil/pull/13) | `substitutionService.test.ts` only |
 | Alerts actions | [#14](https://github.com/Codygrant3/no-fridge-spoil/pull/14) | `Alerts.test.tsx`, Add/Calendar labels |
 
-**Evaluate:** PRs opened; hosted CI not yet terminal at ledger write. Cycle 5 paused: remaining product work hits Scan/Profile/`index.css` or stacks on open drafts #3–#14. Not merged.
+**Evaluate:** Hosted `verify` plus Vercel passed on [#13](https://github.com/Codygrant3/no-fridge-spoil/pull/13) and [#14](https://github.com/Codygrant3/no-fridge-spoil/pull/14). Ledger [#6](https://github.com/Codygrant3/no-fridge-spoil/pull/6) re-ran green on `5838a7f`. Not merged.
+
+## Cycle 5 — paused
+
+Remaining implementable product work hits Scan / Profile / `index.css` or stacks on open drafts #3–#14. Resume after The merges some drafts or explicitly asks for a hotspot split with characterization.
