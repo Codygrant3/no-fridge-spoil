@@ -12,6 +12,7 @@ import { snoozeItemAlert } from './services/alertActionService';
 import { startScheduler, stopScheduler } from './services/notificationScheduler';
 import { cleanupExpiredCache } from './services/aiCacheService';
 import { startCloudSync, stopCloudSync, syncNow } from './services/cloudSyncService';
+import { startReceiptRecovery, stopReceiptRecovery } from './services/receiptRecoveryService';
 import { resolveTabFromHash, routeTabs } from './utils/routing';
 import { isWithinExpirationWindow } from './utils/dateUtils';
 
@@ -226,12 +227,17 @@ export function AccountGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!configured || !session || !activeHousehold) {
       stopCloudSync();
+      stopReceiptRecovery();
       return;
     }
 
     startCloudSync();
+    startReceiptRecovery();
     void syncNow();
-    return () => stopCloudSync();
+    return () => {
+      stopCloudSync();
+      stopReceiptRecovery();
+    };
   }, [activeHousehold, configured, session]);
 
   if (recoveryMode) return <AccountAccess />;
