@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Loader2, Clock, ChefHat, Flame, ChevronRight } from 'lucide-react';
 import type { InventoryItem } from '../types';
-import type { Recipe } from '../services/recipeService';
+import type { Recipe, RecipeRecommendation } from '../services/recipeService';
 import { generateRecipes } from '../services/recipeService';
 
 interface EatThisTonightProps {
@@ -9,8 +9,12 @@ interface EatThisTonightProps {
     onCookNow: (recipe: Recipe) => void;
 }
 
+function recipeTotalMinutes(recipe: Pick<RecipeRecommendation, 'prepMinutes' | 'cookMinutes'>): number {
+    return recipe.prepMinutes + recipe.cookMinutes;
+}
+
 export function EatThisTonightWidget({ expiringItems, onCookNow }: EatThisTonightProps) {
-    const [recipe, setRecipe] = useState<Recipe | null>(null);
+    const [recipe, setRecipe] = useState<RecipeRecommendation | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -33,12 +37,8 @@ export function EatThisTonightWidget({ expiringItems, onCookNow }: EatThisTonigh
                     return;
                 }
 
-                // Prefer quick recipes (<30 mins total time)
-                const quickRecipe = recipes.find(r => {
-                    const prepMins = parseInt(r.prepTime);
-                    const cookMins = parseInt(r.cookTime);
-                    return (prepMins + cookMins) < 30;
-                });
+                // Prefer quick recipes (<30 mins total time) using numeric catalogue minutes
+                const quickRecipe = recipes.find(r => recipeTotalMinutes(r) < 30);
 
                 setRecipe(quickRecipe || recipes[0]);
                 setLoading(false);
@@ -69,7 +69,7 @@ export function EatThisTonightWidget({ expiringItems, onCookNow }: EatThisTonigh
                         <p className="text-xs text-amber-400 font-medium">Inventory match</p>
                     </div>
                 </div>
-                <div className="flex items-center justify-center py-6">
+                <div className="flex items-center justify-center py-6" role="status">
                     <Loader2 className="w-5 h-5 text-amber-400 animate-spin" />
                     <span className="ml-3 text-[var(--text-secondary)] text-sm">Finding perfect recipe...</span>
                 </div>
@@ -81,7 +81,7 @@ export function EatThisTonightWidget({ expiringItems, onCookNow }: EatThisTonigh
         return null;
     }
 
-    const totalTime = parseInt(recipe.prepTime) + parseInt(recipe.cookTime);
+    const totalTime = recipeTotalMinutes(recipe);
     const usedItemsText = recipe.usedIngredients.slice(0, 3).join(' • ');
 
     return (
@@ -136,6 +136,8 @@ export function EatThisTonightWidget({ expiringItems, onCookNow }: EatThisTonigh
 
             {/* CTA Button */}
             <button
+                type="button"
+                aria-label="Start cooking"
                 onClick={() => onCookNow(recipe)}
                 className="w-full p-4 flex items-center justify-center gap-2 font-semibold text-amber-400 hover:bg-amber-500/10 transition-colors group"
             >
