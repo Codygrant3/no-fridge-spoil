@@ -64,4 +64,16 @@ File ownership is in `docs/superpowers/plans/2026-08-21-ipie-cycle-1.md`.
 | ReviewItems skip/keep-original | [#9](https://github.com/Codygrant3/no-fridge-spoil/pull/9) | `ReviewItems.test.tsx` only |
 | Recipes page tests | [#10](https://github.com/Codygrant3/no-fridge-spoil/pull/10) | `Recipes.test.tsx` only |
 
-**Evaluate:** [#9](https://github.com/Codygrant3/no-fridge-spoil/pull/9) Vercel passed; `verify` still running at ledger write. [#10](https://github.com/Codygrant3/no-fridge-spoil/pull/10) just opened. Not merged.
+**Evaluate:** Hosted `verify` plus Vercel passed on [#9](https://github.com/Codygrant3/no-fridge-spoil/pull/9) and [#10](https://github.com/Codygrant3/no-fridge-spoil/pull/10). Ledger [#6](https://github.com/Codygrant3/no-fridge-spoil/pull/6) re-ran green. Not merged.
+
+## Cycle 3 — 2026-08-21 (in progress)
+
+**Inspect:** Open drafts now also cover Recipes and ReviewItems tests. Remaining disjoint gaps: no CookMode page-level tests (only CookTimer + open-from-Recipes); Eat This Tonight uses `parseInt(prepTime)` instead of `prepMinutes`/`cookMinutes` and has no tests.
+
+**Plan:**
+1. CookMode characterization: exit, next/prev step, ingredient check.
+2. Eat This Tonight: prefer numeric minutes for the <30 min pick; add widget tests.
+
+**Implement:** pending cloud agents.
+
+**Evaluate:** pending.
