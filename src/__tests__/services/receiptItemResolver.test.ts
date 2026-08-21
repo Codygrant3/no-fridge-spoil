@@ -115,4 +115,32 @@ describe('receiptItemResolver', () => {
     expect(verified).toMatchObject({ method: 'catalog-alias', autoAccepted: true, shouldReview: false });
     expect(resolveReceiptItem('ORG MLK')).toMatchObject({ autoAccepted: false, shouldReview: true });
   });
+
+  it('scopes new store-brand tokens to the matching merchant', () => {
+    const target = resolveReceiptItem('GG ORG MLK', { merchantName: 'Target' });
+    expect(target).toMatchObject({
+      brand: 'Good & Gather',
+      method: 'store-alias',
+      shouldReview: true,
+      autoAccepted: false,
+    });
+
+    const walmart = resolveReceiptItem('GG ORG MLK', { merchantName: 'Walmart' });
+    expect(walmart.brand).toBeUndefined();
+    expect(walmart.method).not.toBe('store-alias');
+    expect(walmart.shouldReview).toBe(true);
+    expect(walmart.autoAccepted).toBe(false);
+
+    const safeway = resolveReceiptItem('OO ORG MLK', { merchantName: 'Safeway' });
+    expect(safeway).toMatchObject({
+      brand: 'O Organics',
+      method: 'store-alias',
+      shouldReview: true,
+      autoAccepted: false,
+    });
+
+    const costco = resolveReceiptItem('OO ORG MLK', { merchantName: 'Costco' });
+    expect(costco.brand).toBeUndefined();
+    expect(costco.method).not.toBe('store-alias');
+  });
 });
