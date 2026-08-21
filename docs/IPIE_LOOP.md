@@ -91,6 +91,11 @@ File ownership is in `docs/superpowers/plans/2026-08-21-ipie-cycle-1.md`.
 1. Substitution service characterization (exact match, inventory sort). Do not widen fuzzy matching.
 2. Alerts: add-to-list feedback and calendar reminder download, mocking `shoppingActionService`.
 
-**Implement:** pending cloud agents.
+**Implement:**
 
-**Evaluate:** pending.
+| Agent | Draft PR | Files |
+| --- | --- | --- |
+| Substitution tests | [#13](https://github.com/Codygrant3/no-fridge-spoil/pull/13) | `substitutionService.test.ts` only |
+| Alerts actions | [#14](https://github.com/Codygrant3/no-fridge-spoil/pull/14) | `Alerts.test.tsx`, Add/Calendar labels |
+
+**Evaluate:** PRs opened; hosted CI not yet terminal at ledger write. Cycle 5 paused: remaining product work hits Scan/Profile/`index.css` or stacks on open drafts #3–#14. Not merged.
