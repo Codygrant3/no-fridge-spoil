@@ -238,7 +238,11 @@ export function Alerts({ onNavigate }: AlertsProps) {
                                             <ClockCounterClockwise size={16} /> Snooze
                                         </button>
                                         {days >= 0 && (
-                                            <button type="button" onClick={() => addExpirationToCalendar(item)}>
+                                            <button
+                                                type="button"
+                                                aria-label={`Download expiration reminder for ${item.name}`}
+                                                onClick={() => addExpirationToCalendar(item)}
+                                            >
                                                 <CalendarBlank size={16} /> Calendar
                                             </button>
                                         )}
@@ -269,7 +273,12 @@ export function Alerts({ onNavigate }: AlertsProps) {
                                         <strong>{item.name}</strong>
                                         <small>Add it before the next market run</small>
                                     </span>
-                                    <button type="button" className="editorial-inline-action" onClick={() => void addToShopping(item)}>
+                                    <button
+                                        type="button"
+                                        className="editorial-inline-action"
+                                        aria-label={`Add ${item.name} to the shopping list`}
+                                        onClick={() => void addToShopping(item)}
+                                    >
                                         <ShoppingCartSimple size={18} /> Add
                                     </button>
                                 </article>
