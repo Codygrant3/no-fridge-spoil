@@ -57,6 +57,11 @@ File ownership is in `docs/superpowers/plans/2026-08-21-ipie-cycle-1.md`.
 1. Recipes page characterization: For you / Make now / Catalogue, meal+diet filters, search, opening Cook Mode.
 2. ReviewItems characterization: missing expiration skips confirm; declining a suggestion keeps `originalName`.
 
-**Implement:** pending cloud agents.
+**Implement:**
 
-**Evaluate:** pending.
+| Agent | Draft PR | Files |
+| --- | --- | --- |
+| ReviewItems skip/keep-original | [#9](https://github.com/Codygrant3/no-fridge-spoil/pull/9) | `ReviewItems.test.tsx` only |
+| Recipes page tests | [#10](https://github.com/Codygrant3/no-fridge-spoil/pull/10) | `Recipes.test.tsx` only |
+
+**Evaluate:** [#9](https://github.com/Codygrant3/no-fridge-spoil/pull/9) Vercel passed; `verify` still running at ledger write. [#10](https://github.com/Codygrant3/no-fridge-spoil/pull/10) just opened. Not merged.
