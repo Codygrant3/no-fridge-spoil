@@ -39,6 +39,12 @@ Still open from handover: real receipt-image benchmark, more frequent durable se
 
 File ownership is in `docs/superpowers/plans/2026-08-21-ipie-cycle-1.md`.
 
-**Implement:** pending.
+**Implement:**
 
-**Evaluate:** pending.
+| Agent | Draft PR | Files |
+| --- | --- | --- |
+| Loop + handover | [#6](https://github.com/Codygrant3/no-fridge-spoil/pull/6) | IPIE rule, ledger, cycle-1 plan, handover refresh |
+| Meal Planner tests | [#7](https://github.com/Codygrant3/no-fridge-spoil/pull/7) | `src/__tests__/pages/MealPlanner.test.tsx` only |
+| Shopping categories | [#8](https://github.com/Codygrant3/no-fridge-spoil/pull/8) | `ShoppingList.tsx`, export `shoppingCategory`, page tests |
+
+**Evaluate:** [#6](https://github.com/Codygrant3/no-fridge-spoil/pull/6) hosted `verify` + Vercel passed. [#7](https://github.com/Codygrant3/no-fridge-spoil/pull/7) Vercel passed; `verify` still running at ledger write. [#8](https://github.com/Codygrant3/no-fridge-spoil/pull/8) opened after push; CI not yet terminal. Not merged.
