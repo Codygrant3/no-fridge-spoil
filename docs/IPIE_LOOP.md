@@ -147,4 +147,9 @@ File ownership is in `docs/superpowers/plans/2026-08-21-ipie-cycle-1.md`.
 1. Onboarding checklist characterization (dismiss, scan, warning days, notifications gated on first item).
 2. BarcodeScanner: name the manual field; close / manual lookup / HTTPS camera-error tests. Mock camera.
 
-**Implement:** (PRs after agents push)
+**Implement:**
+
+| Agent | Draft PR | Files |
+| --- | --- | --- |
+| Barcode manual name | [#20](https://github.com/Codygrant3/no-fridge-spoil/pull/20) | `BarcodeScanner.tsx`, new tests |
+| Onboarding checklist | (pending push) | `OnboardingCarousel.test.tsx` |
