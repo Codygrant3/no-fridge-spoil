@@ -100,6 +100,20 @@ File ownership is in `docs/superpowers/plans/2026-08-21-ipie-cycle-1.md`.
 
 **Evaluate:** Hosted `verify` plus Vercel passed on [#13](https://github.com/Codygrant3/no-fridge-spoil/pull/13) and [#14](https://github.com/Codygrant3/no-fridge-spoil/pull/14). Ledger [#6](https://github.com/Codygrant3/no-fridge-spoil/pull/6) re-ran green on `5838a7f`. Not merged.
 
-## Cycle 5 — paused
+## Cycle 5 — 2026-08-22 (in progress)
 
-Remaining implementable product work hits Scan / Profile / `index.css` or stacks on open drafts #3–#14. Resume after The merges some drafts or explicitly asks for a hotspot split with characterization.
+**Inspect:** The asked to continue. `#3`–`#14` stay green and occupy recovery, resolver, OCR/Scan, shopping, planner tests, review tests, recipes tests, cook widget/mode, substitutions, and Alerts. Remaining user-visible gaps that do not touch those files: `YYYY-MM-DD` fields still use `Date` / `toISOString()` in Inventory, meal-plan week start, and sealed shelf-life estimates. Profile/Scan/`index.css` splits still deferred.
+
+**Plan:** Three file-disjoint agents from `main` (`0c8fbf4`). Ownership in `docs/superpowers/plans/2026-08-22-ipie-cycle-5.md`.
+
+1. Inventory: local-calendar urgency, opened date, and freeze date; search field name; expand page tests.
+2. Meal plan service: local Monday week start; service tests (do not edit `MealPlanner.test.tsx`).
+3. Sealed shelf-life: `estimateExpirationDate` via `calculateExpirationFromShelfLife`; characterize keyword order. Do not edit Scan or ReviewItems.
+
+**Implement:** (PRs opened after agents push)
+
+| Agent | Files |
+| --- | --- |
+| Inventory local calendar | `Inventory.tsx`, `Inventory.test.tsx` |
+| Meal-plan week start | `mealPlanService.ts`, new `mealPlanService.test.ts` |
+| Sealed shelf-life dates | `sealedShelfLifeService.ts`, new `sealedShelfLifeService.test.ts` |
