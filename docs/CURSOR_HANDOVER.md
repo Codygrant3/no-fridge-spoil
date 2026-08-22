@@ -813,10 +813,12 @@ For the next Cursor session:
 
 The project is a functioning, tested local-first application with optional Supabase collaboration
 and provider-neutral server OCR. `main` is checkpointed and hosted device CI matches the local
-device release gate. Continuing work uses the IPIE loop. Cycles 0–8 are closed; Cycle 9 opened
-[#24](https://github.com/Codygrant3/no-fridge-spoil/pull/24). Drafts #3–#24 are unmerged.
-A production-readiness loop is active (`docs/PROD_READINESS.md`); merge is waiting on The.
-Immediate product concerns: merge those drafts, then Phase C stacked P1s, device/cloud
-release gates, a consented receipt-image benchmark, and durable server-side recovery
-before broad production rollout.
+device release gate. Continuing work uses the IPIE loop. Cycles 0–9 are closed. Drafts #3–#24 are green and
+unmerged. `npm run verify:release` passed as an unmerged baseline on the same app code as
+`main`; it must be re-run after merge. `verify:release:cloud` is unavailable in the current
+agent environment (no Docker / Supabase / `.env.local`). A production-readiness loop is
+active (`docs/PROD_READINESS.md`); merge is waiting on The. Immediate product concerns:
+merge those drafts, then Phase C stacked P1s, re-run device/cloud release gates, a
+consented receipt-image benchmark, and durable server-side recovery before broad
+production rollout.
 

@@ -178,7 +178,7 @@ File ownership is in `docs/superpowers/plans/2026-08-21-ipie-cycle-1.md`.
 
 The asked for a goal loop to get the app ready for prod. Plan: `docs/PROD_READINESS.md`. Merge remains a human gate.
 
-## Cycle 9 — 2026-08-22 (in progress)
+## Cycle 9 — 2026-08-22 (closed)
 
 **Inspect:** `#3`–`#23` occupy almost every page. Still free and prod-visible: `usageService` marks “today” with UTC `toISOString().slice(0, 10)`, so household usage can land on the wrong local day.
 
@@ -192,6 +192,20 @@ The asked for a goal loop to get the app ready for prod. Plan: `docs/PROD_READIN
 | --- | --- | --- |
 | Usage local today | [#24](https://github.com/Codygrant3/no-fridge-spoil/pull/24) | `usageService.ts`, new `usageService.test.ts` |
 
-**Evaluate:** Draft opened. Hosted `verify` on [#24](https://github.com/Codygrant3/no-fridge-spoil/pull/24) is pending. Not merged.
+**Evaluate:** Hosted `verify` plus Vercel passed on [#24](https://github.com/Codygrant3/no-fridge-spoil/pull/24) (`gh pr checks` on `678c6cf`). Not merged.
 
 After this cycle, remaining implementable P1s collide with open drafts (Phase C) or need merge / hardware / consented images (Phase B + D). Do not invent more page tests until The authorizes merge.
+
+## Phase B baseline — 2026-08-22 (unmerged tree)
+
+Ran `npm run verify:release` on `cursor/ipie-loop-3203` (`53ae4cb`, docs-only delta from `main` `0c8fbf4`). Runtime code matches current `main`.
+
+- typecheck, lint, 53 files / 356 tests, build, bundle budgets, secret scan, 7 migrations: pass
+- device e2e: 8 passed, 1 skipped (`e2e/account-cloud.spec.ts` — no cloud env)
+- PWA e2e: pass
+- `npm audit --audit-level=high`: 0 vulnerabilities
+- `PIPE_EXIT:0`
+
+This is **not** definition-of-ready item 2. That gate must be re-run on the merged tree after Phase A.
+
+`npm run verify:release:cloud` was **not run**. This environment has no Docker, no `supabase` CLI, and no `.env.local`. Recorded as unavailable, not passed.

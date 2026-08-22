@@ -56,7 +56,8 @@ These collide with open drafts today:
 ## Current snapshot — 2026-08-22
 
 - `main`: `0c8fbf4`
-- Drafts `#3`–`#23`: hosted `verify` green, unmerged
-- Draft `#24` (usage local today): opened; hosted `verify` pending
+- Drafts `#3`–`#24`: hosted `verify` green, unmerged
+- Device baseline: `npm run verify:release` passed on the unmerged docs branch (`53ae4cb`, same app code as `main`). Must re-run after Phase A merge.
+- Cloud gate: `verify:release:cloud` unavailable here (no Docker, no `supabase` CLI, no `.env.local`). Not claimed as passed.
 - File-disjoint P1s that do not touch `#3`–`#24` are exhausted. Next product work is Phase C after merge, then Phase B gates on merged `main`.
 - This loop is active. Merge is waiting on The. Do not invent more page tests.
