@@ -2,6 +2,8 @@
 
 import {
     completeReceiptScan,
+    PROVIDER,
+    PROVIDER_LABEL,
     readReceiptUpload,
     receiptJsonResponse,
     receiptCloudConsentResponse,
@@ -98,8 +100,8 @@ async function createJob(
     const responseHeaders = receiptQuotaHeaders(reservation, requestId);
     if (!reservation.allowed) {
         return receiptJsonResponse({
-            provider: 'azure-document-intelligence',
-            providerLabel: 'Azure Document Intelligence',
+            provider: PROVIDER,
+            providerLabel: PROVIDER_LABEL,
             configured: true,
             reachable: 'ok',
             status: 'quota-or-rate-limit',

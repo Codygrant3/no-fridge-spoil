@@ -15,8 +15,8 @@ import { mapMistralReceiptResult } from '../src/services/mistralReceiptMapper';
 const CONFIGURED_PROVIDER = process.env.RECEIPT_OCR_PROVIDER?.trim().toLowerCase() === 'mistral'
     ? 'mistral'
     : 'azure';
-const PROVIDER = CONFIGURED_PROVIDER === 'mistral' ? 'mistral-ocr' : 'azure-document-intelligence';
-const PROVIDER_LABEL = CONFIGURED_PROVIDER === 'mistral' ? 'Mistral OCR' : 'Azure Document Intelligence';
+export const PROVIDER = CONFIGURED_PROVIDER === 'mistral' ? 'mistral-ocr' : 'azure-document-intelligence';
+export const PROVIDER_LABEL = CONFIGURED_PROVIDER === 'mistral' ? 'Mistral OCR' : 'Azure Document Intelligence';
 const API_VERSION = '2024-11-30';
 const MAX_RECEIPT_BYTES = 4 * 1024 * 1024;
 const POLL_TIMEOUT_MS = 45_000;
@@ -249,7 +249,7 @@ export function receiptProviderErrorResponse(error: unknown): Response {
         reachable: 'blocked',
         status: isTimeout ? 'network-error' : 'service-error',
         message: isTimeout
-            ? 'Azure receipt OCR timed out. Try the scan again.'
+            ? `${PROVIDER_LABEL} timed out. Try the scan again.`
             : 'The receipt OCR service could not complete this request.',
     }, isTimeout ? 504 : 502);
 }
@@ -269,7 +269,7 @@ function missingConfigurationResponse(): Response {
         configured: false,
         reachable: 'blocked',
         status: 'missing-configuration',
-        message: 'Azure receipt OCR is not configured on the app server.',
+        message: `${PROVIDER_LABEL} is not configured on the app server.`,
     }, 503);
 }
 
@@ -304,7 +304,7 @@ async function checkHealth(config: AzureConfig): Promise<Response> {
         configured: true,
         reachable: 'ok',
         status: 'ready',
-        message: 'Azure Document Intelligence is configured and reachable.',
+        message: `${PROVIDER_LABEL} is configured and reachable.`,
     });
 }
 

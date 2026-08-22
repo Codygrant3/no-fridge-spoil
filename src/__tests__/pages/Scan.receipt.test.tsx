@@ -7,37 +7,31 @@ const mocks = vi.hoisted(() => ({
   analyzeReceipt: vi.fn(),
   analyzeImage: vi.fn(),
   compressReceiptImage: vi.fn(),
+  checkReceiptOcrHealth: vi.fn(),
 }));
 
 vi.mock('../../services/receiptOCRService', () => ({
   analyzeReceipt: mocks.analyzeReceipt,
   getReceiptOcrDiagnostics: () => ({
-    provider: 'azure-document-intelligence',
-    providerLabel: 'Azure Document Intelligence',
+    provider: 'receipt-ocr',
+    providerLabel: 'Receipt OCR',
     configured: false,
     reachable: 'unknown',
     status: 'unchecked',
     message: 'Receipt OCR runs through the secure app service.',
   }),
-  checkReceiptOcrHealth: () => Promise.resolve({
-    provider: 'azure-document-intelligence',
-    providerLabel: 'Azure Document Intelligence',
-    configured: true,
-    reachable: 'ok',
-    status: 'ready',
-    message: 'Azure Document Intelligence is configured and reachable.',
-  }),
+  checkReceiptOcrHealth: mocks.checkReceiptOcrHealth,
   queueReceiptScan: vi.fn(() => Promise.resolve({ id: 'queued', name: 'receipt.png', type: 'image/png', dataUrl: '', queuedAt: '', reason: '' })),
   getQueuedReceiptScans: () => [],
   clearQueuedReceiptScan: vi.fn(),
   classifyReceiptOcrError: (error: Error) => ({
-    provider: 'azure-document-intelligence',
-    providerLabel: 'Azure Document Intelligence',
+    provider: 'receipt-ocr',
+    providerLabel: 'Receipt OCR',
     configured: false,
     reachable: 'blocked',
     status: error.message.includes('not configured') ? 'missing-configuration' : 'unknown-error',
     message: error.message.includes('not configured')
-      ? 'Azure receipt OCR is not configured on the app server.'
+      ? 'Receipt OCR is not configured on the app server.'
       : error.message,
   }),
 }));
@@ -91,6 +85,14 @@ function uploadSyntheticReceipt(container: HTMLElement) {
 describe('Scan receipt mode', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    mocks.checkReceiptOcrHealth.mockResolvedValue({
+      provider: 'azure-document-intelligence',
+      providerLabel: 'Azure Document Intelligence',
+      configured: true,
+      reachable: 'ok',
+      status: 'ready',
+      message: 'Azure Document Intelligence is configured and reachable.',
+    });
     mocks.compressReceiptImage.mockImplementation((file: File) => Promise.resolve(file));
     localStorage.clear();
     await db.receiptHistory.clear();
@@ -138,7 +140,7 @@ describe('Scan receipt mode', () => {
 
     const receiptFile = uploadSyntheticReceipt(container);
 
-    await waitFor(() => expect(mocks.compressReceiptImage).toHaveBeenCalledWith(receiptFile));
+    await waitFor(() => expect(mocks.compressReceiptImage).toHaveBeenCalledWith(receiptFile, expect.any(AbortSignal)));
     await waitFor(() => expect(mocks.analyzeReceipt).toHaveBeenCalledWith(
       receiptFile,
       expect.objectContaining({ onProgress: expect.any(Function) }),
@@ -150,16 +152,46 @@ describe('Scan receipt mode', () => {
     expect(screen.getByText('Skipped: Dish Soap')).toBeInTheDocument();
   });
 
-  it('shows a setup-specific error when Azure receipt OCR is not configured', async () => {
+  it('shows a setup-specific error when receipt OCR is not configured', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    mocks.analyzeReceipt.mockRejectedValue(new Error('Azure receipt OCR is not configured on the app server.'));
+    mocks.analyzeReceipt.mockRejectedValue(new Error('Receipt OCR is not configured on the app server.'));
 
     const { container } = render(<Scan />);
 
     fireEvent.click(screen.getByRole('tab', { name: 'Receipt' }));
     uploadSyntheticReceipt(container);
 
-    expect(await screen.findByText(/^Scan failed: Azure receipt OCR is not configured/)).toBeInTheDocument();
+    expect(await screen.findByText(/^Scan failed: Receipt OCR is not configured/)).toBeInTheDocument();
+    expect(screen.queryByText(/Azure/i)).not.toBeInTheDocument();
+  });
+
+  it('uses a provider-neutral label while checking OCR health', async () => {
+    let resolveHealth: ((value: unknown) => void) | undefined;
+    mocks.checkReceiptOcrHealth.mockImplementation(() => new Promise((resolve) => {
+      resolveHealth = resolve;
+    }));
+
+    render(<Scan />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Receipt' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Receipt settings and scan history' }));
+
+    expect(screen.getByRole('button', { name: 'Check OCR health' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Check OCR health' }));
+
+    expect(await screen.findByRole('button', { name: 'Checking OCR...' })).toBeInTheDocument();
+    expect(screen.queryByText(/Checking Azure/i)).not.toBeInTheDocument();
+
+    resolveHealth?.({
+      provider: 'mistral-ocr',
+      providerLabel: 'Mistral OCR',
+      configured: true,
+      reachable: 'ok',
+      status: 'ready',
+      message: 'Mistral OCR is configured and reachable.',
+    });
+
+    expect(await screen.findByRole('button', { name: 'Check OCR health' })).toBeInTheDocument();
+    expect(await screen.findByText('Mistral OCR is configured and reachable.')).toBeInTheDocument();
   });
 
   it('loads a local sample receipt without calling cloud OCR', async () => {
@@ -273,5 +305,18 @@ describe('Scan receipt mode', () => {
     await waitFor(() => expect(screen.getByText('No saved receipts match that search.')).toBeInTheDocument());
     expect(await db.receiptHistory.get('alpha-receipt')).toBeUndefined();
     expect(await db.receiptHistory.get('beta-receipt')).toBeDefined();
+  });
+
+  it('cancels receipt compression through AbortSignal and does not queue the scan', async () => {
+    mocks.compressReceiptImage.mockImplementation(() => new Promise(() => undefined));
+
+    const { container } = render(<Scan />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Receipt' }));
+    uploadSyntheticReceipt(container);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel scan' }));
+
+    expect(await screen.findByText('Scan cancelled.')).toBeInTheDocument();
+    expect(mocks.analyzeReceipt).not.toHaveBeenCalled();
   });
 });
