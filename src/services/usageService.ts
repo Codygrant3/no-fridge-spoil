@@ -1,3 +1,4 @@
+import { formatDate } from '../utils/dateUtils';
 import { supabase } from './supabaseClient';
 
 export interface UsageSummary {
@@ -37,7 +38,7 @@ export async function getUsageSummary(householdId: string, userId: string): Prom
         .gte('usage_day', from.toISOString());
     if (error) throw error;
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = formatDate(new Date());
     const rows = (data ?? []) as UsageRow[];
     return rows.reduce<UsageSummary>((summary, row) => {
         const successful = value(row.successful_scans);
