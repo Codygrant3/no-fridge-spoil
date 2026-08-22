@@ -182,8 +182,16 @@ The asked for a goal loop to get the app ready for prod. Plan: `docs/PROD_READIN
 
 **Inspect:** `#3`–`#23` occupy almost every page. Still free and prod-visible: `usageService` marks “today” with UTC `toISOString().slice(0, 10)`, so household usage can land on the wrong local day.
 
-**Plan:** One file-disjoint agent from `main`.
+**Plan:** One file-disjoint agent from `main`. Ownership in `docs/superpowers/plans/2026-08-22-ipie-cycle-9.md`.
 
 1. Usage “today” via `formatDate`. Service tests only plus `usageService.ts`.
 
-**Implement:** (PR after agent pushes)
+**Implement:**
+
+| Agent | Draft PR | Files |
+| --- | --- | --- |
+| Usage local today | [#24](https://github.com/Codygrant3/no-fridge-spoil/pull/24) | `usageService.ts`, new `usageService.test.ts` |
+
+**Evaluate:** Draft opened. Hosted `verify` on [#24](https://github.com/Codygrant3/no-fridge-spoil/pull/24) is pending. Not merged.
+
+After this cycle, remaining implementable P1s collide with open drafts (Phase C) or need merge / hardware / consented images (Phase B + D). Do not invent more page tests until The authorizes merge.

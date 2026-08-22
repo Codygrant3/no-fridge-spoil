@@ -16,7 +16,7 @@ All of these must be true:
 2. `npm run verify:release` has passed on the merged tree (not claimed from skipped runs).
 3. `npm run verify:release:cloud` has passed against a local Supabase stack, or the skip is recorded as unavailable.
 4. Receipt retry no longer depends on a manual button for signed-in online households (`#3`).
-5. `YYYY-MM-DD` grocery dates on Inventory, meal-plan week start, sealed estimates, Alerts freeze, and usage “today” use local calendar helpers.
+5. `YYYY-MM-DD` grocery dates on Inventory, meal-plan week start, sealed estimates, Alerts freeze, and usage “today” (`#24`) use local calendar helpers.
 6. Shopping adds use `shoppingCategory` (`#8`); meal-plan missing-ingredient adds follow after `#8` lands.
 7. Receipt compression can abort (`#23`) and Scan actually passes a signal (stacks on `#5` + `#23`).
 8. Remaining honest blockers are written down: consented receipt-image benchmark, hardware QA, Hobby cron still daily.
@@ -27,7 +27,7 @@ Suggested order after The says merge:
 
 1. `#6` docs
 2. Test-only: `#7` `#9` `#10` `#13` `#19` `#21` `#22`
-3. Isolated product: `#8` `#11` `#12` `#14` `#15` `#16` `#17` `#18` `#20` `#23`
+3. Isolated product: `#8` `#11` `#12` `#14` `#15` `#16` `#17` `#18` `#20` `#23` `#24`
 4. Receipt stack last: `#4` then `#5` then `#3`
 
 Do not squash across ownership. Re-run `gh pr checks` after each merge.
@@ -57,4 +57,6 @@ These collide with open drafts today:
 
 - `main`: `0c8fbf4`
 - Drafts `#3`–`#23`: hosted `verify` green, unmerged
-- This loop is active. Merge is waiting on The.
+- Draft `#24` (usage local today): opened; hosted `verify` pending
+- File-disjoint P1s that do not touch `#3`–`#24` are exhausted. Next product work is Phase C after merge, then Phase B gates on merged `main`.
+- This loop is active. Merge is waiting on The. Do not invent more page tests.

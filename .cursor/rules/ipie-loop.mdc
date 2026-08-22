@@ -21,7 +21,7 @@ When The sets the prod-readiness goal, prefer work in `docs/PROD_READINESS.md` o
 
 - Do not merge unless The explicitly says to merge.
 - After a merge authorization, follow Phase A order in that doc, then Phase B gates.
-- Until then, only file-disjoint work that is still free of drafts `#3`–`#23`.
+- Until then, only file-disjoint work that is still free of drafts `#3`–`#24`. After `#24`, remaining P1s are Phase C (blocked on merge) or Phase D.
 - Do not claim `verify:release` or `verify:release:cloud` passed unless that command ran.
 - Stop the recurring timer when the definition of ready is met, or when only Phase D blockers remain and The pauses.
 
