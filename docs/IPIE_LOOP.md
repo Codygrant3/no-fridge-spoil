@@ -138,7 +138,7 @@ File ownership is in `docs/superpowers/plans/2026-08-21-ipie-cycle-1.md`.
 
 **Evaluate:** Hosted `verify` plus Vercel passed on [#18](https://github.com/Codygrant3/no-fridge-spoil/pull/18) and [#19](https://github.com/Codygrant3/no-fridge-spoil/pull/19). Not merged.
 
-## Cycle 7 — 2026-08-22 (in progress)
+## Cycle 7 — 2026-08-22 (closed)
 
 **Inspect:** `#3`–`#19` occupy receipt, shopping, planner, cook, alerts, inventory, calendar services, Profile tests, and ProfileSwitcher. Still free and user-visible: no OnboardingCarousel tests; BarcodeScanner manual field has placeholder only.
 
@@ -154,4 +154,15 @@ File ownership is in `docs/superpowers/plans/2026-08-21-ipie-cycle-1.md`.
 | Barcode manual name | [#20](https://github.com/Codygrant3/no-fridge-spoil/pull/20) | `BarcodeScanner.tsx`, new tests |
 | Onboarding checklist | [#21](https://github.com/Codygrant3/no-fridge-spoil/pull/21) | `OnboardingCarousel.test.tsx` only |
 
-**Evaluate:** Hosted `verify` plus Vercel passed on [#20](https://github.com/Codygrant3/no-fridge-spoil/pull/20). [#21](https://github.com/Codygrant3/no-fridge-spoil/pull/21) opened; hosted CI not yet terminal.
+**Evaluate:** Hosted `verify` plus Vercel passed on [#20](https://github.com/Codygrant3/no-fridge-spoil/pull/20) and [#21](https://github.com/Codygrant3/no-fridge-spoil/pull/21). Ledger [#6](https://github.com/Codygrant3/no-fridge-spoil/pull/6) re-ran green on `15d3cd2`. Not merged.
+
+## Cycle 8 — 2026-08-22 (in progress)
+
+**Inspect:** `#3`–`#21` occupy pages, cook, alerts, Profile tests, ProfileSwitcher, barcode, and onboarding. Still free: `imageCompressionService` has no tests (receipt path lacks AbortSignal); `localMutationService` household filter is untested.
+
+**Plan:** Two file-disjoint agents from `main`. Ownership in `docs/superpowers/plans/2026-08-22-ipie-cycle-8.md`.
+
+1. Image compression: characterize fallback/abort; add optional `signal` to `compressReceiptImage` without editing Scan.
+2. `localMutationFields` / `belongsToActiveHousehold` characterization. Do not change sync semantics.
+
+**Implement:** (PRs after agents push)
