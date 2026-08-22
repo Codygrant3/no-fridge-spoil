@@ -17,6 +17,7 @@ import {
 import { getActiveCloudHouseholdId } from './cloudSessionService';
 import { isCloudConfigured } from './supabaseClient';
 import { belongsToActiveHousehold, localMutationFields } from './localMutationService';
+import { shoppingCategory } from './shoppingActionService';
 
 /**
  * Get the Monday of the current week as a local YYYY-MM-DD calendar day.
@@ -154,7 +155,7 @@ export async function addMissingToShoppingList(plan: DbMealPlan): Promise<number
                 addedAt: new Date().toISOString(),
                 isChecked: false,
                 metadata: 'From meal plan',
-                category: 'other',
+                category: shoppingCategory(ingredient),
                 isDeleted: 0,
                 ...localMutationFields(),
             });

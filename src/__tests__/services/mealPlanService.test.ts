@@ -77,5 +77,6 @@ describe('addMissingToShoppingList', () => {
     expect(added).toBe(1);
     expect(names).toEqual(['eggs', 'milk']);
     expect(list.filter(item => item.name.toLowerCase() === 'milk')).toHaveLength(1);
+    expect(list.find(item => item.name.toLowerCase() === 'eggs')?.category).toBe('dairy');
   });
 });
