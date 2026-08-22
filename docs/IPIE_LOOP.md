@@ -110,10 +110,12 @@ File ownership is in `docs/superpowers/plans/2026-08-21-ipie-cycle-1.md`.
 2. Meal plan service: local Monday week start; service tests (do not edit `MealPlanner.test.tsx`).
 3. Sealed shelf-life: `estimateExpirationDate` via `calculateExpirationFromShelfLife`; characterize keyword order. Do not edit Scan or ReviewItems.
 
-**Implement:** (PRs opened after agents push)
+**Implement:**
 
-| Agent | Files |
-| --- | --- |
-| Inventory local calendar | `Inventory.tsx`, `Inventory.test.tsx` |
-| Meal-plan week start | `mealPlanService.ts`, new `mealPlanService.test.ts` |
-| Sealed shelf-life dates | `sealedShelfLifeService.ts`, new `sealedShelfLifeService.test.ts` |
+| Agent | Draft PR | Files |
+| --- | --- | --- |
+| Inventory local calendar | [#15](https://github.com/Codygrant3/no-fridge-spoil/pull/15) | `Inventory.tsx`, `Inventory.test.tsx` |
+| Sealed shelf-life dates | [#16](https://github.com/Codygrant3/no-fridge-spoil/pull/16) | `sealedShelfLifeService.ts`, new tests |
+| Meal-plan week start | [#17](https://github.com/Codygrant3/no-fridge-spoil/pull/17) | `mealPlanService.ts`, new tests |
+
+**Evaluate:** Drafts opened; hosted CI not yet terminal.
