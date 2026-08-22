@@ -399,8 +399,10 @@ export function CookMode({ recipe, items, onClose }: CookModeProps) {
                                 Voice Commands
                             </h3>
                             <button
+                                type="button"
                                 onClick={() => setShowVoiceHelp(false)}
                                 className="text-[var(--text-secondary)] hover:text-white p-2 bg-[var(--bg-secondary)] rounded-lg border border-[var(--border-color)] inventory-card"
+                                aria-label="Close voice commands help"
                             >
                                 <X className="w-6 h-6" />
                             </button>
