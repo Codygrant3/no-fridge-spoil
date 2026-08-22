@@ -1,0 +1,48 @@
+From c1510e1d976ec69c8c396856e0ff1e54bb5fa18e Mon Sep 17 00:00:00 2001
+From: Cursor Agent <cursoragent@cursor.com>
+Date: Sat, 22 Aug 2026 02:17:28 +0000
+Subject: [PATCH] Meal-plan missing ingredients use shoppingCategory.
+
+Alerts freeze uses formatDate. Scan cancel passes AbortSignal into receipt compression. Meal-plan missing ingredients use shoppingCategory. Receipt recovery resumes a stored jobId without a second POST. Do not land until Phase A is on main.
+
+Co-authored-by: Codygrant3 <Codygrant3@users.noreply.github.com>
+---
+ src/__tests__/services/mealPlanService.test.ts | 1 +
+ src/services/mealPlanService.ts                | 3 ++-
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/src/__tests__/services/mealPlanService.test.ts b/src/__tests__/services/mealPlanService.test.ts
+index 36c68bf..0f0f674 100644
+--- a/src/__tests__/services/mealPlanService.test.ts
++++ b/src/__tests__/services/mealPlanService.test.ts
+@@ -77,5 +77,6 @@ describe('addMissingToShoppingList', () => {
+     expect(added).toBe(1);
+     expect(names).toEqual(['eggs', 'milk']);
+     expect(list.filter(item => item.name.toLowerCase() === 'milk')).toHaveLength(1);
++    expect(list.find(item => item.name.toLowerCase() === 'eggs')?.category).toBe('dairy');
+   });
+ });
+diff --git a/src/services/mealPlanService.ts b/src/services/mealPlanService.ts
+index e924ef7..70ff793 100644
+--- a/src/services/mealPlanService.ts
++++ b/src/services/mealPlanService.ts
+@@ -17,6 +17,7 @@ import {
+ import { getActiveCloudHouseholdId } from './cloudSessionService';
+ import { isCloudConfigured } from './supabaseClient';
+ import { belongsToActiveHousehold, localMutationFields } from './localMutationService';
++import { shoppingCategory } from './shoppingActionService';
+ 
+ /**
+  * Get the Monday of the current week as a local YYYY-MM-DD calendar day.
+@@ -154,7 +155,7 @@ export async function addMissingToShoppingList(plan: DbMealPlan): Promise<number
+                 addedAt: new Date().toISOString(),
+                 isChecked: false,
+                 metadata: 'From meal plan',
+-                category: 'other',
++                category: shoppingCategory(ingredient),
+                 isDeleted: 0,
+                 ...localMutationFields(),
+             });
+-- 
+2.43.0
+

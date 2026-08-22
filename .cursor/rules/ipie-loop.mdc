@@ -1,0 +1,41 @@
+---
+description: Inspect-plan-implement-evaluate loop for No Fridge Spoil improvements
+alwaysApply: true
+---
+
+# Inspect-Plan-Implement-Evaluate Loop
+
+Use this loop for continuing product work. Do not ad-hoc "improve everything."
+
+## Cycle
+
+1. **Evaluate** the previous cycle first. Re-read open PRs, `gh pr checks`, and diffs. Do not trust agent summaries alone. Do not merge unless The asks.
+2. **Inspect** live source, `docs/CURSOR_HANDOVER.md` §18, `docs/IPIE_LOOP.md`, open draft PRs, and tests. Pick 2–3 independent, file-disjoint improvements. Skip files already on an open draft PR.
+3. **Plan** the cycle in `docs/IPIE_LOOP.md` (append a cycle section). Prefer user-visible bugs over docs-only work. Record file ownership so parallel agents cannot collide.
+4. **Implement** independent tasks with cloud agents (`environment: cloud`, `cloud_base_branch: main` unless a task depends on an unmerged PR). The coordinator opens draft PRs if a child cannot. Keep each task on its own branch.
+5. **Evaluate** hosted CI plus the focused tests named in the plan. Record pass/fail in `docs/IPIE_LOOP.md`. Start the next inspect.
+
+## Production-readiness track
+
+When The sets the prod-readiness goal, prefer work in `docs/PROD_READINESS.md` over opportunistic page tests.
+
+- Do not merge unless The explicitly says to merge.
+- After a merge authorization, follow Phase A order in that doc, then Phase B gates.
+- Until then, only file-disjoint work that is still free of drafts `#3`–`#25`. After `#25`, remaining P1s are Phase C (blocked on merge) or Phase D.
+- Do not claim `verify:release` or `verify:release:cloud` passed unless that command ran.
+- Stop the recurring timer when the definition of ready is met, or when only Phase D blockers remain and The pauses.
+
+## Selection rules
+
+- Highest remaining handover priority that is implementable without consented receipt images or physical device hardware.
+- One concern per agent. Name the files it may edit.
+- Do not reset, clean, or delete untracked files to tidy Git.
+- Do not place secrets in `VITE_*`.
+- Do not describe skipped checks as passed.
+- Vercel Hobby cron stays daily unless infrastructure is explicitly in scope.
+
+## Coordinator duties
+
+- After a child finishes without a PR, open the draft PR from its pushed branch.
+- Subscribe to that branch CI; unsubscribe after a terminal result.
+- If CI fails, resume that agent or fix on the same branch; do not start unrelated work on it.

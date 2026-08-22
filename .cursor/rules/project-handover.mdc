@@ -11,7 +11,7 @@ Read `docs/CURSOR_HANDOVER.md` before substantial work.
 
 - This is a React 19 + TypeScript + Vite local-first PWA.
 - Dexie/IndexedDB is the local source of truth. Supabase is optional household sync.
-- The working tree is intentionally very dirty and contains required uncommitted production code.
+- `main` is checkpointed through the local-first platform publish and CI-parity merges. Treat extra uncommitted files as required until proven otherwise.
 - Never reset, clean, restore, or delete untracked files to normalize Git state.
 - Preserve unrelated user changes.
 - Vercel is the only supported deployment target.
