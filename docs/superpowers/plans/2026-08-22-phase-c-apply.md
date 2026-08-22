@@ -10,6 +10,9 @@ Apply only after Phase A lands on GitHub `main`.
 **Meal-plan `shoppingCategory` is already on draft `#17` (`e3f5cdb`).** Skip
 `2026-08-22-phase-c-meal-plan-category.patch` if `#17` merged with that commit.
 
+**Scan cancel and receipt `jobId` resume are already on drafts `#5` (`b0c913e`) and `#3` (`7d053b6`).** Skip
+`2026-08-22-phase-c-scan-cancel.patch` and `2026-08-22-phase-c-receipt-resume.patch` if those heads landed.
+
 The remaining two patches are file-disjoint and apply independently. Keep
 the combined patch as a one-shot fallback only when `#14`/`#17` did **not**
 land their hunks.

@@ -18,7 +18,7 @@ All of these must be true:
 4. Receipt retry no longer depends on a manual button for signed-in online households (`#3`).
 5. `YYYY-MM-DD` grocery dates on Inventory, meal-plan week start, sealed estimates, Alerts freeze (`#14`), and usage “today” (`#24`) use local calendar helpers.
 6. Shopping adds use `shoppingCategory` (`#8`); meal-plan missing-ingredient adds use it on `#17`.
-7. Receipt compression can abort (`#23`) and Scan actually passes a signal (stacks on `#5` + `#23`).
+7. Receipt compression can abort (`#23`) and Scan actually passes a signal (`#5`).
 8. Remaining honest blockers are written down: consented receipt-image benchmark, hardware QA, Hobby cron still daily.
 
 ## Phase A — Land drafts (human merge gate)
@@ -39,23 +39,18 @@ Do not squash across ownership. Re-run `gh pr checks` after each merge.
 - Cloud: start local Supabase, then `npm run verify:release:cloud`
 - Record pass/fail in `docs/IPIE_LOOP.md`. Never describe a skipped gate as passed.
 
-## Phase C — Stacked P1 after merge
+## Phase C — Now on existing drafts
 
-Alerts freeze now lives on draft `#14` (`934234f`, hosted `verify` passed). Meal-plan `shoppingCategory` now lives on draft `#17` (`e3f5cdb`). Do **not** re-apply those two Phase C patches after Phase A if those drafts landed.
+All four stacked P1s now live on existing drafts. Do **not** open post-merge Phase C PRs if these heads landed:
 
-The other two stacked P1s remain local-only on `cursor/phase-c-stacked-3203` (`c1510e1`). Integrated `verify:release` passed (471 tests). Do not apply onto current `main`.
+| P1 | Draft | Head |
+| --- | --- | --- |
+| Alerts freeze local date | `#14` | `934234f` (hosted `verify` passed) |
+| Meal-plan `shoppingCategory` | `#17` | `e3f5cdb` (hosted `verify` passed) |
+| Scan cancel + compression signal | `#5` | `b0faa16` / `b0c913e` (hosted `verify` pending) |
+| Receipt `jobId` resume | `#5` + `#3` | `b0c913e` / `7d053b6` (hosted `verify` pending) |
 
-Playbook: `docs/superpowers/plans/2026-08-22-phase-c-apply.md`.
-
-Remaining scoped apply-ready patches (file-disjoint; each checks clean on rehearsal tip `7a4be2f`):
-
-| Patch | After-merge branch |
-| --- | --- |
-| `docs/superpowers/patches/2026-08-22-phase-c-scan-cancel.patch` | `cursor/scan-cancel-compress-3203` |
-| `docs/superpowers/patches/2026-08-22-phase-c-receipt-resume.patch` | `cursor/receipt-resume-jobid-3203` |
-
-- Persist/resume receipt `jobId` (`#3` + `#5`)
-- Wire Scan cancel into `compressReceiptImage(file, signal)` (`#5` + `#23`)
+Playbook: `docs/superpowers/plans/2026-08-22-phase-c-apply.md`. Keep the patches only as a fallback if a draft lands without its Cycle 11–13 commit.
 
 ## Phase D — Cannot close in this loop
 
@@ -68,10 +63,12 @@ Remaining scoped apply-ready patches (file-disjoint; each checks clean on rehear
 - `main`: `0c8fbf4`
 - Drafts `#3`–`#25` remain drafts. `#24` hosted `verify` green on `678c6cf`. `#25` hosted `verify` + `cloud` green on `776a3c6`.
 - Draft `#14` writes Alerts freeze dates with `formatDate` (`934234f`). Hosted `verify` passed (2m53s). One Vercel preview passed; `no-fridge-spoilv2` is Hobby-rate-limited.
-- Draft `#17` categorizes meal-plan missing-ingredient adds with `shoppingCategory` (`e3f5cdb`). Focused vitest 3 passed; typecheck/lint passed. Hosted `verify` pending. The `export` hunk matches `#8`.
+- Draft `#17` categorizes meal-plan missing-ingredient adds with `shoppingCategory` (`e3f5cdb`). Hosted `verify` passed (2m37s).
+- Draft `#5` cancels receipt compression through `AbortSignal` and resumes a stored `jobId` without a second POST (`b0c913e`). Focused Scan/OCR tests passed. Hosted `verify` pending.
+- Draft `#3` persists/passes that `jobId` on queued retry (`7d053b6`). Consent is still stored `cloudOcrConsent`. Hosted `verify` pending.
 - Device baseline: `npm run verify:release` passed on the unmerged docs branch (`53ae4cb`, same app code as `main`).
 - Phase A rehearsal: `#3`–`#24` merged locally with **no conflicts**. Integrated `verify:release` passed (`7a4be2f`, 467 tests). Not landed on GitHub. Does not yet include `#25`.
 - Cloud gate: hosted `cloud` job passed on `#25` against disposable local Supabase. The exact local command `npm run verify:release:cloud` was not run here (no Docker). Not claimed as passed.
-- Remaining Phase C after merge: Scan cancel (`#5`+`#23`) and receipt `jobId` resume (`#3`+`#5`). Skip the Alerts freeze and meal-plan category patches if `#14` and `#17` landed.
-- Latest `#6` Vercel previews are Hobby-rate-limited. Hosted `verify` on `834abfc` passed (2m14s).
+- File-disjoint product P1s that do not need consented images or devices are on drafts `#3`–`#25`. Remaining rollout work is Phase A merge, Phase B gates on merged `main`, then Phase D.
+- Latest `#6` Vercel previews are Hobby-rate-limited. Hosted `verify` on `9895e05` passed (2m43s).
 - This loop is active. Merge is waiting on The. Do not invent more page tests.

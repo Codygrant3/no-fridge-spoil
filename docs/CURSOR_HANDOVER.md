@@ -812,15 +812,15 @@ For the next Cursor session:
 
 The project is a functioning, tested local-first application with optional Supabase collaboration
 and provider-neutral server OCR. `main` is checkpointed and hosted device CI matches the local
-device release gate. Continuing work uses the IPIE loop. Cycles 0–12 are closed. Drafts #3–#25 are green and
-unmerged. `#14` includes the Alerts freeze local-calendar fix. `#17` categorizes
-meal-plan missing-ingredient adds. A local Phase A rehearsal merged those drafts onto `main` with no conflicts and
+device release gate. Continuing work uses the IPIE loop. Cycles 0–13 are closed. Drafts #3–#25 are
+unmerged. `#14` includes Alerts freeze local dates. `#17` categorizes meal-plan
+adds. `#5` cancels receipt compression and resumes a stored jobId. `#3` persists
+that jobId on queued retry. A local Phase A rehearsal merged those drafts onto `main` with no conflicts and
 passed `verify:release` (467 tests). That rehearsal is not landed and does not include `#25`.
 Hosted `cloud` on draft `#25` passed; the local command `verify:release:cloud` is still
 unavailable here (no Docker). A production-readiness loop is
 active (`docs/PROD_READINESS.md`); merge is waiting on The. Immediate product concerns:
-land Phase A (Alerts freeze is on `#14`, meal-plan category is on `#17`; skip those Phase C patches if they landed),
-then apply the remaining scoped Phase C patches (Scan cancel and receipt `jobId` resume; `docs/superpowers/plans/2026-08-22-phase-c-apply.md`) as PRs,
-re-run device/cloud release gates on merged `main`, a consented receipt-image benchmark,
-and durable server-side recovery before broad production rollout.
+land Phase A (Phase C hunks are already on `#14` `#17` `#5` `#3`; skip those patches if those heads landed),
+then re-run device/cloud release gates on merged `main` (the leftover apply playbook is only a fallback; `docs/superpowers/plans/2026-08-22-phase-c-apply.md`),
+then a consented receipt-image benchmark and durable server-side recovery before broad production rollout.
 

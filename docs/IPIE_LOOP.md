@@ -303,6 +303,23 @@ Re-read drafts after the prod-readiness timer. No human merge comment. Sampled `
 | --- | --- | --- |
 | Meal-plan shopping category | [#17](https://github.com/Codygrant3/no-fridge-spoil/pull/17) `e3f5cdb` | `mealPlanService.ts`, test, `shoppingActionService.ts` export |
 
-**Evaluate:** Focused `npx vitest run src/__tests__/services/mealPlanService.test.ts` — 3 passed. `npm run typecheck` and `npm run lint` passed in the `#17` worktree. Hosted `verify` on `e3f5cdb` is pending.
+**Evaluate:** Focused `npx vitest run src/__tests__/services/mealPlanService.test.ts` — 3 passed. `npm run typecheck` and `npm run lint` passed in the `#17` worktree. Hosted `verify` passed on `e3f5cdb` (2m37s).
 
-[#6](https://github.com/Codygrant3/no-fridge-spoil/pull/6) `834abfc` hosted `verify` passed (2m14s). No merge authorization from The. Remaining Phase C: Scan cancel, receipt `jobId` resume.
+[#6](https://github.com/Codygrant3/no-fridge-spoil/pull/6) `9895e05` hosted `verify` passed (2m43s).
+
+## Cycle 13 — 2026-08-22 (closed)
+
+**Inspect:** Remaining Phase C was Scan cancel (`#5`+`#23`) and receipt `jobId` resume (`#3`+`#5`). `#23` already adds `compressReceiptImage(file, signal?)`. `#5` already owns `Scan.tsx`. Resume splits cleanly: OCR API on `#5`, queue persist/pass on `#3`.
+
+**Plan:** Put Scan cancel and `resumeJobId` on `#5`. Put queue `jobId` persist/pass on `#3`. Do not open new Phase C branches.
+
+**Implement:**
+
+| Agent | Draft PR | Files |
+| --- | --- | --- |
+| Scan cancel + resume API | [#5](https://github.com/Codygrant3/no-fridge-spoil/pull/5) `b0faa16` `b0c913e` | `Scan.tsx`, Scan receipt test, `imageCompressionService.ts` signal, `receiptOCRService.ts` + test |
+| Recovery jobId persist | [#3](https://github.com/Codygrant3/no-fridge-spoil/pull/3) `7d053b6` | `receiptRecoveryService.ts` + test, `jobId`/`resumeJobId` types |
+
+**Evaluate:** `#5` focused Scan/OCR 20–22 passed; typecheck/lint passed. `#3` recovery + AccountGate 8 passed; typecheck/lint passed. Hosted `verify` on those heads is pending.
+
+No merge authorization from The. Remaining rollout work is Phase A merge, Phase B on merged `main`, then Phase D. Do not invent more page tests.
