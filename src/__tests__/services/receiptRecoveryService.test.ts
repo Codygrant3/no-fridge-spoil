@@ -66,11 +66,27 @@ describe('receiptRecoveryService', () => {
     await recoverQueuedReceipts({ enabled: true });
 
     expect(analyzeReceiptMock).toHaveBeenCalledTimes(1);
-    const [file, options] = analyzeReceiptMock.mock.calls[0] as [File, { cloudConsent?: boolean }];
+    const [file, options] = analyzeReceiptMock.mock.calls[0] as [File, { cloudConsent?: boolean; resumeJobId?: string }];
     expect(file).toBeInstanceOf(File);
     expect(file.name).toBe(queued.name);
     expect(file.type).toBe(queued.type);
-    expect(options).toEqual({ cloudConsent: true });
+    expect(options).toEqual(expect.objectContaining({ cloudConsent: true }));
+    expect(options.resumeJobId).toBeUndefined();
+  });
+
+  it('resumes a stored server jobId instead of opening a second reservation', async () => {
+    const queued = await queueReceiptScan(receiptFile(), 'network-error');
+    await updateQueuedReceiptScan(queued.id, { jobId: '22222222-2222-4222-8222-222222222222' });
+
+    await recoverQueuedReceipts({ enabled: true });
+
+    expect(analyzeReceiptMock).toHaveBeenCalledWith(
+      expect.any(File),
+      expect.objectContaining({
+        cloudConsent: true,
+        resumeJobId: '22222222-2222-4222-8222-222222222222',
+      }),
+    );
   });
 
   it('does not retry when stored cloud OCR consent is false (consent-required skip)', async () => {

@@ -70,7 +70,15 @@ async function retryQueuedReceipt(queued: QueuedReceiptScan, cloudConsent: boole
 
     const file = new File([queued.imageBlob], queued.name, { type: queued.type });
     try {
-        await analyzeReceipt(file, { cloudConsent });
+        await analyzeReceipt(file, {
+            cloudConsent,
+            resumeJobId: queued.jobId,
+            onProgress: progress => {
+                if (progress.jobId && progress.jobId !== queued.jobId) {
+                    void updateQueuedReceiptScan(queued.id, { jobId: progress.jobId });
+                }
+            },
+        });
         await clearQueuedReceiptScan(queued.id);
     } catch (error) {
         const message = error instanceof Error

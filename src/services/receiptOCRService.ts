@@ -85,6 +85,8 @@ export interface ReceiptJobProgress {
 export interface AnalyzeReceiptOptions {
     onProgress?: (progress: ReceiptJobProgress) => void;
     cloudConsent?: boolean;
+    /** Resume an already-reserved server job instead of POSTing a new one. */
+    resumeJobId?: string;
 }
 
 export type ReceiptOcrStatus =
@@ -121,6 +123,7 @@ export interface QueuedReceiptScan {
     retryCount: number;
     lastRetryAt?: string;
     lastError?: string;
+    jobId?: string;
 }
 
 const PROVIDER = 'azure-document-intelligence';
