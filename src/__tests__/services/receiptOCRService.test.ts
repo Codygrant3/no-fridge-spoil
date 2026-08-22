@@ -340,4 +340,25 @@ describe('receiptOCRService', () => {
       },
     });
   });
+
+  it('resumes a stored jobId without POSTing a new receipt job', async () => {
+    const completed = jsonResponse({
+      jobId: receiptJobId,
+      status: 'succeeded',
+      attempts: 1,
+      maxAttempts: 3,
+      result: mockReceiptResponse,
+    });
+    const fetchMock = vi.fn().mockResolvedValue(completed);
+    vi.stubGlobal('fetch', fetchMock);
+    const { analyzeReceipt } = await loadReceiptService();
+
+    const result = await analyzeReceipt(makeSyntheticReceiptFile(), { resumeJobId: receiptJobId });
+
+    expect(result.items).toHaveLength(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(`/api/receipt-jobs?id=${receiptJobId}`, expect.objectContaining({
+      method: 'PUT',
+    }));
+  });
 });

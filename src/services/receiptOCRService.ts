@@ -85,6 +85,8 @@ export interface ReceiptJobProgress {
 export interface AnalyzeReceiptOptions {
     onProgress?: (progress: ReceiptJobProgress) => void;
     cloudConsent?: boolean;
+    /** Resume an already-reserved server job instead of POSTing a new one. */
+    resumeJobId?: string;
 }
 
 export type ReceiptOcrStatus =
@@ -121,6 +123,7 @@ export interface QueuedReceiptScan {
     retryCount: number;
     lastRetryAt?: string;
     lastError?: string;
+    jobId?: string;
 }
 
 const FALLBACK_PROVIDER = 'receipt-ocr';
@@ -641,10 +644,18 @@ export async function analyzeReceipt(
         const cached = await getCachedResponse<ReceiptAnalysisResult>(cacheKey, 'receipt');
         if (cached) return { ...cached, cacheHit: true };
 
-        const formData = new FormData();
-        formData.append('receipt', imageFile, imageFile.name);
         const accountHeaders = await getAuthenticatedRequestHeaders();
         const cloudConsent = options.cloudConsent === true;
+        const resumeJobId = z.string().uuid().safeParse(options.resumeJobId);
+        if (resumeJobId.success) {
+            options.onProgress?.({ status: 'queued', jobId: resumeJobId.data });
+            const resumed = await processReceiptJob(resumeJobId.data, accountHeaders, options);
+            await setCachedResponse(cacheKey, 'receipt', resumed);
+            return resumed;
+        }
+
+        const formData = new FormData();
+        formData.append('receipt', imageFile, imageFile.name);
         options.onProgress?.({ status: 'uploading' });
         const response = await fetchWithTimeout(RECEIPT_JOBS_API_URL, {
             method: 'POST',
