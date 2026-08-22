@@ -236,4 +236,8 @@ Implemented on local branch `cursor/phase-c-stacked-3203` (`c1510e1`), stacked o
 | Meal-plan missing ingredients `shoppingCategory` | `mealPlanService.ts` + test |
 | Resume stored receipt `jobId` (no second POST; consent still stored) | `receiptOCRService.ts`, `receiptRecoveryService.ts` + tests |
 
-Focused vitest: 34 passed. `npm run typecheck` and `npm run lint` passed on the rehearsal tree. Open as file-disjoint PRs after Phase A lands on `main`.
+Focused vitest: 34 passed. `npm run typecheck` and `npm run lint` passed on the rehearsal tree.
+
+`npm run verify:release` on `c1510e1`: `PIPE_EXIT:0` — 69 files / 471 tests, device e2e 8 passed (cloud account skipped), PWA e2e pass, high-severity audit 0. Still **not** definition-of-ready item 2 (not on GitHub `main`).
+
+Open as file-disjoint PRs after Phase A lands on `main`.
