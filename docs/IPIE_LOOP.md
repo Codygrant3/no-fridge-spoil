@@ -165,4 +165,11 @@ File ownership is in `docs/superpowers/plans/2026-08-21-ipie-cycle-1.md`.
 1. Image compression: characterize fallback/abort; add optional `signal` to `compressReceiptImage` without editing Scan.
 2. `localMutationFields` / `belongsToActiveHousehold` characterization. Do not change sync semantics.
 
-**Implement:** (PRs after agents push)
+**Implement:**
+
+| Agent | Draft PR | Files |
+| --- | --- | --- |
+| Household mutations | [#22](https://github.com/Codygrant3/no-fridge-spoil/pull/22) | `localMutationService.test.ts` only |
+| Compression abort | [#23](https://github.com/Codygrant3/no-fridge-spoil/pull/23) | `imageCompressionService.ts`, new tests |
+
+**Evaluate:** Drafts opened; hosted CI not yet terminal.
