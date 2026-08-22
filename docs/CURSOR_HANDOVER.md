@@ -814,7 +814,7 @@ For the next Cursor session:
 The project is a functioning, tested local-first application with optional Supabase collaboration
 and provider-neutral server OCR. `main` is checkpointed and hosted device CI matches the local
 device release gate. Continuing work uses the IPIE loop. Cycles 0–5 are closed with fifteen green
-drafts (#3–#17); Cycle 6 characterizes Profile without splitting it. Immediate product concerns:
+drafts (#3–#19); Cycle 7 characterizes onboarding and barcode manual entry. Immediate product concerns:
 merge or iterate those drafts, then a consented receipt-image benchmark and durable server-side
 recovery before broad production rollout.
 
