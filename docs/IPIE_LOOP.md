@@ -156,7 +156,7 @@ File ownership is in `docs/superpowers/plans/2026-08-21-ipie-cycle-1.md`.
 
 **Evaluate:** Hosted `verify` plus Vercel passed on [#20](https://github.com/Codygrant3/no-fridge-spoil/pull/20) and [#21](https://github.com/Codygrant3/no-fridge-spoil/pull/21). Ledger [#6](https://github.com/Codygrant3/no-fridge-spoil/pull/6) re-ran green on `15d3cd2`. Not merged.
 
-## Cycle 8 — 2026-08-22 (in progress)
+## Cycle 8 — 2026-08-22 (closed)
 
 **Inspect:** `#3`–`#21` occupy pages, cook, alerts, Profile tests, ProfileSwitcher, barcode, and onboarding. Still free: `imageCompressionService` has no tests (receipt path lacks AbortSignal); `localMutationService` household filter is untested.
 
@@ -172,4 +172,4 @@ File ownership is in `docs/superpowers/plans/2026-08-21-ipie-cycle-1.md`.
 | Household mutations | [#22](https://github.com/Codygrant3/no-fridge-spoil/pull/22) | `localMutationService.test.ts` only |
 | Compression abort | [#23](https://github.com/Codygrant3/no-fridge-spoil/pull/23) | `imageCompressionService.ts`, new tests |
 
-**Evaluate:** Drafts opened; hosted CI not yet terminal.
+**Evaluate:** Hosted `verify` plus Vercel passed on [#22](https://github.com/Codygrant3/no-fridge-spoil/pull/22) and [#23](https://github.com/Codygrant3/no-fridge-spoil/pull/23). Not merged.
