@@ -19,7 +19,7 @@ import { NotificationService } from '../services/notificationService';
 import { startScheduler } from '../services/notificationScheduler';
 import { addInventoryItemToShoppingList } from '../services/shoppingActionService';
 import { clearExpiredAlertSnoozes, isItemAlertSnoozed, snoozeItemAlert } from '../services/alertActionService';
-import { daysUntilExpiration } from '../utils/dateUtils';
+import { daysUntilExpiration, formatDate } from '../utils/dateUtils';
 
 interface AlertsProps {
     onNavigate?: (tab: TabType) => void;
@@ -82,7 +82,7 @@ export function Alerts({ onNavigate }: AlertsProps) {
         frozenUntil.setDate(frozenUntil.getDate() + 30);
         await updateItem(id, {
             storageLocation: 'freezer',
-            expirationDate: frozenUntil.toISOString().split('T')[0],
+            expirationDate: formatDate(frozenUntil),
         });
         setFeedback(`${name} moved to the freezer for 30 days.`);
     };
@@ -238,7 +238,11 @@ export function Alerts({ onNavigate }: AlertsProps) {
                                             <ClockCounterClockwise size={16} /> Snooze
                                         </button>
                                         {days >= 0 && (
-                                            <button type="button" onClick={() => addExpirationToCalendar(item)}>
+                                            <button
+                                                type="button"
+                                                aria-label={`Download expiration reminder for ${item.name}`}
+                                                onClick={() => addExpirationToCalendar(item)}
+                                            >
                                                 <CalendarBlank size={16} /> Calendar
                                             </button>
                                         )}
@@ -269,7 +273,12 @@ export function Alerts({ onNavigate }: AlertsProps) {
                                         <strong>{item.name}</strong>
                                         <small>Add it before the next market run</small>
                                     </span>
-                                    <button type="button" className="editorial-inline-action" onClick={() => void addToShopping(item)}>
+                                    <button
+                                        type="button"
+                                        className="editorial-inline-action"
+                                        aria-label={`Add ${item.name} to the shopping list`}
+                                        onClick={() => void addToShopping(item)}
+                                    >
                                         <ShoppingCartSimple size={18} /> Add
                                     </button>
                                 </article>
