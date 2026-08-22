@@ -21,7 +21,7 @@ At the 2026-08-21 IPIE refresh:
 - Do not reset, clean, restore, or check out files to make the tree look tidy.
 - Do not assume an untracked file is disposable.
 - Inspect `git status --short` before editing and preserve changes outside the requested scope.
-- Continuing work follows `.cursor/rules/ipie-loop.mdc` and `docs/IPIE_LOOP.md`.
+- Continuing work follows `.cursor/rules/ipie-loop.mdc`, `docs/IPIE_LOOP.md`, and `docs/PROD_READINESS.md`.
 
 The canonical source of truth is the live source plus passing tests. Some historical documents
 describe work as pending even though it has since been implemented. See Section 17.
@@ -814,7 +814,7 @@ For the next Cursor session:
 The project is a functioning, tested local-first application with optional Supabase collaboration
 and provider-neutral server OCR. `main` is checkpointed and hosted device CI matches the local
 device release gate. Continuing work uses the IPIE loop. Cycles 0–5 are closed with fifteen green
-drafts (#3–#23); Cycles 0–8 are closed. Immediate product concerns:
+drafts (#3–#23); Cycles 0–8 are closed. A production-readiness loop is active (`docs/PROD_READINESS.md`); merge is waiting on The. Immediate product concerns:
 merge or iterate those drafts, then a consented receipt-image benchmark and durable server-side
 recovery before broad production rollout.
 

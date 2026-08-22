@@ -15,6 +15,16 @@ Use this loop for continuing product work. Do not ad-hoc "improve everything."
 4. **Implement** independent tasks with cloud agents (`environment: cloud`, `cloud_base_branch: main` unless a task depends on an unmerged PR). The coordinator opens draft PRs if a child cannot. Keep each task on its own branch.
 5. **Evaluate** hosted CI plus the focused tests named in the plan. Record pass/fail in `docs/IPIE_LOOP.md`. Start the next inspect.
 
+## Production-readiness track
+
+When The sets the prod-readiness goal, prefer work in `docs/PROD_READINESS.md` over opportunistic page tests.
+
+- Do not merge unless The explicitly says to merge.
+- After a merge authorization, follow Phase A order in that doc, then Phase B gates.
+- Until then, only file-disjoint work that is still free of drafts `#3`–`#23`.
+- Do not claim `verify:release` or `verify:release:cloud` passed unless that command ran.
+- Stop the recurring timer when the definition of ready is met, or when only Phase D blockers remain and The pauses.
+
 ## Selection rules
 
 - Highest remaining handover priority that is implementable without consented receipt images or physical device hardware.

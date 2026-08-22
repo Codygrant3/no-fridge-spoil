@@ -173,3 +173,17 @@ File ownership is in `docs/superpowers/plans/2026-08-21-ipie-cycle-1.md`.
 | Compression abort | [#23](https://github.com/Codygrant3/no-fridge-spoil/pull/23) | `imageCompressionService.ts`, new tests |
 
 **Evaluate:** Hosted `verify` plus Vercel passed on [#22](https://github.com/Codygrant3/no-fridge-spoil/pull/22) and [#23](https://github.com/Codygrant3/no-fridge-spoil/pull/23). Not merged.
+
+## Production-readiness track — 2026-08-22 (active)
+
+The asked for a goal loop to get the app ready for prod. Plan: `docs/PROD_READINESS.md`. Merge remains a human gate.
+
+## Cycle 9 — 2026-08-22 (in progress)
+
+**Inspect:** `#3`–`#23` occupy almost every page. Still free and prod-visible: `usageService` marks “today” with UTC `toISOString().slice(0, 10)`, so household usage can land on the wrong local day.
+
+**Plan:** One file-disjoint agent from `main`.
+
+1. Usage “today” via `formatDate`. Service tests only plus `usageService.ts`.
+
+**Implement:** (PR after agent pushes)
