@@ -240,6 +240,7 @@ export function BarcodeScanner({ isOpen, onClose, onProductFound }: BarcodeScann
                             onChange={(e) => setManualBarcode(e.target.value)}
                             onKeyDown={(e) => { if (e.key === 'Enter') handleManualSubmit(); }}
                             placeholder="Enter barcode numbers..."
+                            aria-label="Barcode number"
                             className="w-full p-4 glass-thin rounded-2xl text-[var(--text-primary)] text-lg text-center tracking-widest mb-4 outline-none focus:ring-1 focus:ring-[var(--accent-color)]/30"
                             autoFocus
                         />
