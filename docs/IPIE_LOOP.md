@@ -209,3 +209,18 @@ Ran `npm run verify:release` on `cursor/ipie-loop-3203` (`53ae4cb`, docs-only de
 This is **not** definition-of-ready item 2. That gate must be re-run on the merged tree after Phase A.
 
 `npm run verify:release:cloud` was **not run**. This environment has no Docker, no `supabase` CLI, and no `.env.local`. Recorded as unavailable, not passed.
+
+## Phase A rehearsal — 2026-08-22 (local only, not landed)
+
+Merged `#6` → test-only `#7 #9 #10 #13 #19 #21 #22` → product `#8 #11 #12 #14 #15 #16 #17 #18 #20 #23 #24` → receipt `#4 #5 #3` onto `origin/main` (`0c8fbf4`) in a local worktree. **No conflicts.** Final rehearsal HEAD `7a4be2f`. GitHub PRs were not merged.
+
+`npm run verify:release` on that integrated tree: `PIPE_EXIT:0`.
+
+- typecheck, lint, 69 files / 467 tests, build, migrations: pass
+- device e2e: 8 passed, 1 skipped (`e2e/account-cloud.spec.ts`)
+- PWA e2e: pass
+- `npm audit --audit-level=high`: 0 vulnerabilities
+
+First e2e attempt failed with Vite `403` font loads because `node_modules` was symlinked from `/workspace`. Re-ran after `npm ci` inside the worktree. Not a product defect.
+
+This is still **not** definition-of-ready item 1 or 2. Drafts are not on `main`. Re-run the gate after The authorizes Phase A.

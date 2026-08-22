@@ -814,11 +814,11 @@ For the next Cursor session:
 The project is a functioning, tested local-first application with optional Supabase collaboration
 and provider-neutral server OCR. `main` is checkpointed and hosted device CI matches the local
 device release gate. Continuing work uses the IPIE loop. Cycles 0–9 are closed. Drafts #3–#24 are green and
-unmerged. `npm run verify:release` passed as an unmerged baseline on the same app code as
-`main`; it must be re-run after merge. `verify:release:cloud` is unavailable in the current
-agent environment (no Docker / Supabase / `.env.local`). A production-readiness loop is
+unmerged. A local Phase A rehearsal merged those drafts onto `main` with no conflicts and
+passed `verify:release` (467 tests). That rehearsal is not landed. `verify:release:cloud`
+is unavailable here (no Docker / Supabase / `.env.local`). A production-readiness loop is
 active (`docs/PROD_READINESS.md`); merge is waiting on The. Immediate product concerns:
-merge those drafts, then Phase C stacked P1s, re-run device/cloud release gates, a
-consented receipt-image benchmark, and durable server-side recovery before broad
+land Phase A, then Phase C stacked P1s, re-run device/cloud release gates on merged `main`,
+a consented receipt-image benchmark, and durable server-side recovery before broad
 production rollout.
 
