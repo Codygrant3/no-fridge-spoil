@@ -21,6 +21,7 @@ import { useInventory } from '../context/InventoryContext';
 import type { Recipe } from '../services/recipeService';
 import { getShelfLifeDescription } from '../services/shelfLifeService';
 import { addInventoryItemToShoppingList } from '../services/shoppingActionService';
+import { daysUntilExpiration, formatDate, parseDate } from '../utils/dateUtils';
 
 interface InventoryProps {
     onNavigate?: (tab: TabType) => void;
@@ -36,8 +37,7 @@ const foodImages: Array<{ terms: string[]; src: string }> = [
 ];
 
 function getDaysUntil(dateString: string, now: number): { days: number; label: string } {
-    const difference = new Date(dateString).getTime() - now;
-    const days = Math.ceil(difference / 86_400_000);
+    const days = daysUntilExpiration(dateString, new Date(now));
 
     if (days < 0) return { days, label: 'Expired' };
     if (days === 0) return { days, label: 'Today' };
@@ -84,7 +84,13 @@ export function Inventory({ onNavigate }: InventoryProps) {
                     || (filter === 'fresh' && days > 7);
                 return matchesQuery && matchesFilter;
             })
-            .sort((first, second) => new Date(first.expirationDate).getTime() - new Date(second.expirationDate).getTime());
+            .sort((first, second) => {
+                const firstParsed = parseDate(first.expirationDate);
+                const secondParsed = parseDate(second.expirationDate);
+                const firstTime = firstParsed?.getTime() ?? Number.POSITIVE_INFINITY;
+                const secondTime = secondParsed?.getTime() ?? Number.POSITIVE_INFINITY;
+                return firstTime - secondTime;
+            });
     }, [currentTime, filter, items, search]);
 
     const criticalItems = useMemo(
@@ -111,7 +117,7 @@ export function Inventory({ onNavigate }: InventoryProps) {
     }, [currentTime, items]);
 
     const markAsOpened = useCallback(async (id: string) => {
-        await updateItem(id, { openedDate: new Date().toISOString().split('T')[0] });
+        await updateItem(id, { openedDate: formatDate(new Date()) });
     }, [updateItem]);
 
     const freezeItem = useCallback(async (id: string, name: string) => {
@@ -119,7 +125,7 @@ export function Inventory({ onNavigate }: InventoryProps) {
         frozenUntil.setDate(frozenUntil.getDate() + 30);
         await updateItem(id, {
             storageLocation: 'freezer',
-            expirationDate: frozenUntil.toISOString().split('T')[0],
+            expirationDate: formatDate(frozenUntil),
         });
         setActionFeedback(`${name} moved to the freezer for 30 days.`);
     }, [updateItem]);
@@ -192,6 +198,7 @@ export function Inventory({ onNavigate }: InventoryProps) {
                                 setVisibleItemCount(24);
                             }}
                             placeholder="Search groceries"
+                            aria-label="Search groceries"
                             autoFocus
                         />
                     </label>
