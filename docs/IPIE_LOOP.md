@@ -320,6 +320,30 @@ Re-read drafts after the prod-readiness timer. No human merge comment. Sampled `
 | Scan cancel + resume API | [#5](https://github.com/Codygrant3/no-fridge-spoil/pull/5) `b0faa16` `b0c913e` | `Scan.tsx`, Scan receipt test, `imageCompressionService.ts` signal, `receiptOCRService.ts` + test |
 | Recovery jobId persist | [#3](https://github.com/Codygrant3/no-fridge-spoil/pull/3) `7d053b6` | `receiptRecoveryService.ts` + test, `jobId`/`resumeJobId` types |
 
-**Evaluate:** `#5` focused Scan/OCR 20–22 passed; typecheck/lint passed. `#3` recovery + AccountGate 8 passed; typecheck/lint passed. Hosted `verify` on those heads is pending.
+**Evaluate:** `#5` focused Scan/OCR 20–22 passed; typecheck/lint passed. `#3` recovery + AccountGate 8 passed; typecheck/lint passed. Hosted `verify` on those heads passed before merge (`b0c913e`, `7d053b6`).
 
-No merge authorization from The. Remaining rollout work is Phase A merge, Phase B on merged `main`, then Phase D. Do not invent more page tests.
+## Cycle 14 — 2026-08-22 (closed)
+
+**Inspect:** The said “Merge.” Drafts `#3`–`#25` were `MERGEABLE`. Hosted `verify` was green on each current head. Vercel Hobby quota failures on some later heads are not app defects.
+
+**Plan:** Phase A order from `docs/PROD_READINESS.md`: `#6`, `#25`, test-only, isolated product, receipt stack last. Merge commits only. Do not squash. Skip Phase C patches if `#14` `#17` `#5` `#3` land with their Cycle 11–13 heads.
+
+**Implement:** Marked each draft ready and merge-committed onto GitHub `main`. No conflicts. `#8` then `#17` auto-merged the identical `shoppingCategory` export. `#23` then `#5` auto-merged the identical `compressReceiptImage(file, signal?)` API.
+
+| Order | PRs | Merge commits on `main` |
+| --- | --- | --- |
+| Docs | `#6` | `7bdb541` |
+| Hosted cloud CI | `#25` | `6b3163f` |
+| Test-only | `#7` `#9` `#10` `#13` `#19` `#21` `#22` | `ff40ba6` … `1462a84` |
+| Isolated product | `#8` `#11` `#12` `#14` `#15` `#16` `#17` `#18` `#20` `#23` `#24` | `9412167` … `02506e9` |
+| Receipt stack | `#4` `#5` `#3` | `aa3ca45` `d6c4c39` `ef7c4eb` |
+
+`main` HEAD after Phase A: `ef7c4eb`. Phase C patches were **not** re-applied; the landed heads already contain them (`934234f`, `e3f5cdb`, `b0c913e`, `7d053b6`).
+
+**Evaluate — Phase B on merged GitHub `main` `ef7c4eb`:**
+
+- Device: `npm run verify:release` in a clean worktree with its own `npm ci` (not a symlink). **Passed.** 70 files / 474 tests; 8 device e2e passed (cloud-account e2e skipped); PWA passed; audit 0. Log: `/opt/cursor/artifacts/verify_release_merged_main.log`.
+- Cloud: `npm run verify:release:cloud` was **not** run here. This environment has no Docker, no `supabase` CLI, and no `.env.local`. **Unavailable.** Not claimed as passed.
+- Hosted CI on `ef7c4eb` (`https://github.com/Codygrant3/no-fridge-spoil/actions/runs/32576244408`): `verify` **passed**, `cloud` **passed** (disposable `supabase start`, generated env, `verify:cloud`, `test:e2e:cloud`). That is not the local `verify:release:cloud` command.
+
+Remaining rollout work is Phase D only: consented receipt-image OCR benchmark, physical iOS Safari / Android Chrome QA, and more-than-daily Hobby cron. Do not invent more page tests.
