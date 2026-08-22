@@ -17,7 +17,7 @@ The modern platform tree is on `main` (checkpoint `7909077`, CI-parity merge `0c
 At the 2026-08-21 IPIE refresh:
 
 - Hosted CI now runs typecheck, PWA e2e, and `npm audit --audit-level=high` (PR #2).
-- Draft PRs #3–#24 cover receipt recovery, shorthand, OCR diagnostics, IPIE docs, shopping/planner/review/recipes/cook/alerts/substitutions/inventory/calendar/Profile characterization, barcode, onboarding, household mutations, compression abort, and usage local today.
+- Draft PRs #3–#25 cover receipt recovery, shorthand, OCR diagnostics, IPIE docs, shopping/planner/review/recipes/cook/alerts/substitutions/inventory/calendar/Profile characterization, barcode, onboarding, household mutations, compression abort, usage local today, and hosted disposable Supabase CI.
 - Do not reset, clean, restore, or check out files to make the tree look tidy.
 - Do not assume an untracked file is disposable.
 - Inspect `git status --short` before editing and preserve changes outside the requested scope.
@@ -686,8 +686,7 @@ Done on `main` (`7909077` publish, later CI-parity merges). If a dirty tree reap
 ### P1: Strengthen hosted CI
 
 Device-side hosted CI parity landed in PR #2 (`typecheck`, PWA e2e, high-severity audit, `engines`).
-Still open: a disposable Supabase job for cloud foundation / cloud E2E if secrets and Docker
-service constraints are acceptable.
+Draft PR #25 adds a disposable local Supabase job for `verify:cloud` and cloud E2E. Unmerged.
 
 ### P1: Build a real receipt benchmark
 
@@ -813,10 +812,11 @@ For the next Cursor session:
 
 The project is a functioning, tested local-first application with optional Supabase collaboration
 and provider-neutral server OCR. `main` is checkpointed and hosted device CI matches the local
-device release gate. Continuing work uses the IPIE loop. Cycles 0–9 are closed. Drafts #3–#24 are green and
+device release gate. Continuing work uses the IPIE loop. Cycles 0–10 are closed. Drafts #3–#25 are green and
 unmerged. A local Phase A rehearsal merged those drafts onto `main` with no conflicts and
-passed `verify:release` (467 tests). That rehearsal is not landed. `verify:release:cloud`
-is unavailable here (no Docker / Supabase / `.env.local`). A production-readiness loop is
+passed `verify:release` (467 tests). That rehearsal is not landed and does not include `#25`.
+Hosted `cloud` on draft `#25` passed; the local command `verify:release:cloud` is still
+unavailable here (no Docker). A production-readiness loop is
 active (`docs/PROD_READINESS.md`); merge is waiting on The. Immediate product concerns:
 land Phase A, then apply the scoped Phase C patches (`docs/superpowers/plans/2026-08-22-phase-c-apply.md`) as PRs,
 re-run device/cloud release gates on merged `main`, a consented receipt-image benchmark,

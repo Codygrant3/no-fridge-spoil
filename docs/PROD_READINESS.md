@@ -26,9 +26,10 @@ All of these must be true:
 Suggested order after The says merge:
 
 1. `#6` docs
-2. Test-only: `#7` `#9` `#10` `#13` `#19` `#21` `#22`
-3. Isolated product: `#8` `#11` `#12` `#14` `#15` `#16` `#17` `#18` `#20` `#23` `#24`
-4. Receipt stack last: `#4` then `#5` then `#3`
+2. `#25` hosted cloud CI
+3. Test-only: `#7` `#9` `#10` `#13` `#19` `#21` `#22`
+4. Isolated product: `#8` `#11` `#12` `#14` `#15` `#16` `#17` `#18` `#20` `#23` `#24`
+5. Receipt stack last: `#4` then `#5` then `#3`
 
 Do not squash across ownership. Re-run `gh pr checks` after each merge.
 
@@ -69,10 +70,12 @@ Combined fallback: `docs/superpowers/patches/2026-08-22-phase-c.patch`.
 ## Current snapshot — 2026-08-22
 
 - `main`: `0c8fbf4`
-- Drafts `#3`–`#24`: hosted `verify` green, unmerged
+- Drafts `#3`–`#24`: hosted `verify` green, unmerged. `#24` confirmed green on `678c6cf`.
+- Draft `#25`: hosted `verify` + `cloud` green on `776a3c6`. Closes the disposable-Supabase CI P1. Unmerged.
 - Device baseline: `npm run verify:release` passed on the unmerged docs branch (`53ae4cb`, same app code as `main`).
-- Phase A rehearsal: all 22 draft branches merged locally in checklist order with **no conflicts**. Integrated `verify:release` passed (`7a4be2f`, 467 tests). Not landed on GitHub.
-- Cloud gate: `verify:release:cloud` unavailable here (no Docker, no `supabase` CLI, no `.env.local`). Not claimed as passed.
-- File-disjoint P1s that do not touch `#3`–`#24` are exhausted. Re-inspected live source for leftover `YYYY-MM-DD` grocery writes and hardcoded shopping `category: 'other'`; remaining hits are already owned by `#15` `#16` `#17` `#24` or Phase C.
-- Phase C is now four scoped patches plus a playbook, still blocked until Phase A lands.
+- Phase A rehearsal: all 22 draft branches merged locally in checklist order with **no conflicts**. Integrated `verify:release` passed (`7a4be2f`, 467 tests). Not landed on GitHub. Does not yet include `#25`.
+- Cloud gate: hosted `cloud` job passed on `#25` against disposable local Supabase. The exact local command `npm run verify:release:cloud` was not run here (no Docker). Not claimed as passed.
+- File-disjoint product P1s that do not touch `#3`–`#25` are exhausted. Remaining product work is Phase C after merge.
+- Phase C is four scoped patches plus a playbook, still blocked until Phase A lands.
+- Latest `#6` Vercel previews are Hobby-rate-limited. Hosted `verify` on `9018e7b` passed.
 - This loop is active. Merge is waiting on The. Do not invent more page tests.

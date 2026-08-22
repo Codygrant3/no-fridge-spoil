@@ -254,3 +254,25 @@ Verified on rehearsal tip `7a4be2f`:
 - scoped patches do **not** apply on current `main`-equivalent app tree (expected)
 
 Re-evaluated drafts `#3`–`#24`: hosted `verify` green on current heads. `#6` `8c75d08` hosted `verify` was still in progress when this split started. No merge authorization from The. Cloud gate still unavailable (no Docker, no `supabase` CLI, no `.env.local`).
+
+## Cycle 10 — 2026-08-22 (closed)
+
+**Inspect:** Handover §18 still had an implementable P1 that did not need consented images or hardware: a disposable hosted Supabase job for cloud foundation / cloud E2E. File-disjoint from `#3`–`#24`.
+
+**Plan:** `docs/superpowers/plans/2026-08-22-ipie-cycle-10.md` on its own branch (not this ledger branch, to avoid burning Hobby Vercel quota).
+
+**Implement:**
+
+| Agent | Draft PR | Files |
+| --- | --- | --- |
+| Hosted disposable Supabase | [#25](https://github.com/Codygrant3/no-fridge-spoil/pull/25) | `ci.yml` `cloud` job, `localSupabaseEnv` writer + tests, `env:local-supabase`, Auth redirect ports, no-op `seed.sql` |
+
+**Evaluate:** Hosted `verify` and hosted `cloud` passed on [#25](https://github.com/Codygrant3/no-fridge-spoil/pull/25) `776a3c6` (`supabase start`, generated env, `verify:cloud`, `test:e2e:cloud`). First head `da9fcad` failed because CLI `2.84.2` rejected `[local_smtp]`; pin is `2.115.0`. Not merged.
+
+`npm run verify:release:cloud` was **not** run as one local command (this environment still has no Docker). Not claimed as passed.
+
+[#24](https://github.com/Codygrant3/no-fridge-spoil/pull/24) hosted `verify` remains green on `678c6cf`. No merge authorization from The. Do not invent more page tests. Remaining product work is Phase C after merge, then Phase B on merged `main`, then Phase D.
+
+## Timer snapshot — 2026-08-22 02:30Z
+
+Re-read drafts after the prod-readiness timer. No human merge comment. Sampled `#3` `#8` `#23` `#24` still hosted-`verify` green. `#6` `9018e7b` hosted `verify` green; latest Vercel previews Hobby-rate-limited. `#25` hosted `verify` + `cloud` green.
