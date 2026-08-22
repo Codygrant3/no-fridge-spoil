@@ -8,6 +8,7 @@
 import { db } from '../db/database';
 import type { DbMealPlan, MealSlot, DbShoppingItem } from '../db/database';
 import type { InventoryItem } from '../types';
+import { formatDate } from '../utils/dateUtils';
 import {
     getRecipeRecommendations,
     inventoryHasIngredient,
@@ -16,17 +17,17 @@ import {
 import { getActiveCloudHouseholdId } from './cloudSessionService';
 import { isCloudConfigured } from './supabaseClient';
 import { belongsToActiveHousehold, localMutationFields } from './localMutationService';
+import { shoppingCategory } from './shoppingActionService';
 
 /**
- * Get the Monday of the current week as YYYY-MM-DD.
+ * Get the Monday of the current week as a local YYYY-MM-DD calendar day.
  */
-export function getCurrentWeekStart(): string {
-    const now = new Date();
+export function getCurrentWeekStart(now = new Date()): string {
     const day = now.getDay();
     const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday
     const monday = new Date(now);
     monday.setDate(diff);
-    return monday.toISOString().split('T')[0];
+    return formatDate(monday);
 }
 
 /**
@@ -154,7 +155,7 @@ export async function addMissingToShoppingList(plan: DbMealPlan): Promise<number
                 addedAt: new Date().toISOString(),
                 isChecked: false,
                 metadata: 'From meal plan',
-                category: 'other',
+                category: shoppingCategory(ingredient),
                 isDeleted: 0,
                 ...localMutationFields(),
             });
