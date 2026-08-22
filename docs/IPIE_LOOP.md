@@ -224,3 +224,16 @@ Merged `#6` → test-only `#7 #9 #10 #13 #19 #21 #22` → product `#8 #11 #12 #1
 First e2e attempt failed with Vite `403` font loads because `node_modules` was symlinked from `/workspace`. Re-ran after `npm ci` inside the worktree. Not a product defect.
 
 This is still **not** definition-of-ready item 1 or 2. Drafts are not on `main`. Re-run the gate after The authorizes Phase A.
+
+## Phase C rehearsal — 2026-08-22 (local only, not landed)
+
+Implemented on local branch `cursor/phase-c-stacked-3203` (`c1510e1`), stacked on the Phase A rehearsal. **Not pushed** — a PR against current `main` would include all 22 drafts.
+
+| Change | Files |
+| --- | --- |
+| Alerts freeze `formatDate` | `Alerts.tsx` + test |
+| Scan cancel → `compressReceiptImage(file, signal)` | `Scan.tsx` + receipt test |
+| Meal-plan missing ingredients `shoppingCategory` | `mealPlanService.ts` + test |
+| Resume stored receipt `jobId` (no second POST; consent still stored) | `receiptOCRService.ts`, `receiptRecoveryService.ts` + tests |
+
+Focused vitest: 34 passed. `npm run typecheck` and `npm run lint` passed on the rehearsal tree. Open as file-disjoint PRs after Phase A lands on `main`.

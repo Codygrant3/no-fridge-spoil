@@ -40,7 +40,7 @@ Do not squash across ownership. Re-run `gh pr checks` after each merge.
 
 ## Phase C — Stacked P1 after merge
 
-These collide with open drafts today:
+Implemented locally on `cursor/phase-c-stacked-3203` (`c1510e1`). Do not open against `main` until Phase A lands.
 
 - Persist/resume receipt `jobId` (`#3` + `#5`)
 - Wire Scan cancel into `compressReceiptImage(file, signal)` (`#5` + `#23`)
