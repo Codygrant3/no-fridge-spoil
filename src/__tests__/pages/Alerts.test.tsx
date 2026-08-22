@@ -4,10 +4,12 @@ import { addInventoryItemToShoppingList } from '../../services/shoppingActionSer
 import { NotificationService } from '../../services/notificationService';
 import { Alerts } from '../../pages/Alerts';
 import { db } from '../../db/database';
+import { formatDate } from '../../utils/dateUtils';
 
-const { addInventoryItemToShoppingListMock, addToCalendarMock } = vi.hoisted(() => ({
+const { addInventoryItemToShoppingListMock, addToCalendarMock, updateItemMock } = vi.hoisted(() => ({
   addInventoryItemToShoppingListMock: vi.fn(),
   addToCalendarMock: vi.fn(() => true),
+  updateItemMock: vi.fn(),
 }));
 
 vi.mock('../../context/InventoryContext', () => ({
@@ -24,7 +26,7 @@ vi.mock('../../context/InventoryContext', () => ({
     }],
     consumeItem: vi.fn(),
     removeItem: vi.fn(),
-    updateItem: vi.fn(),
+    updateItem: updateItemMock,
   }),
 }));
 
@@ -50,6 +52,7 @@ describe('Alerts', () => {
     vi.setSystemTime(new Date(2026, 6, 25, 23, 59, 30));
     addInventoryItemToShoppingListMock.mockReset();
     addToCalendarMock.mockReset();
+    updateItemMock.mockReset();
     addToCalendarMock.mockReturnValue(true);
   });
 
@@ -106,5 +109,21 @@ describe('Alerts', () => {
       expirationDate: '2026-07-26',
     }));
     expect(screen.getByRole('status')).toHaveTextContent('Tomorrow Milk expiration reminder downloaded.');
+  });
+
+  it('freezes an expiring fridge item with a local +30 calendar date', async () => {
+    render(<Alerts />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Freeze' }));
+    });
+
+    const frozenUntil = new Date(2026, 6, 25, 23, 59, 30);
+    frozenUntil.setDate(frozenUntil.getDate() + 30);
+    expect(updateItemMock).toHaveBeenCalledWith('tomorrow-item', {
+      storageLocation: 'freezer',
+      expirationDate: formatDate(frozenUntil),
+    });
+    expect(screen.getByRole('status')).toHaveTextContent('Tomorrow Milk moved to the freezer for 30 days.');
   });
 });
