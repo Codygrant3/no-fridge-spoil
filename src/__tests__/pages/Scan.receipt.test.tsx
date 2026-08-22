@@ -140,7 +140,7 @@ describe('Scan receipt mode', () => {
 
     const receiptFile = uploadSyntheticReceipt(container);
 
-    await waitFor(() => expect(mocks.compressReceiptImage).toHaveBeenCalledWith(receiptFile));
+    await waitFor(() => expect(mocks.compressReceiptImage).toHaveBeenCalledWith(receiptFile, expect.any(AbortSignal)));
     await waitFor(() => expect(mocks.analyzeReceipt).toHaveBeenCalledWith(
       receiptFile,
       expect.objectContaining({ onProgress: expect.any(Function) }),
@@ -305,5 +305,18 @@ describe('Scan receipt mode', () => {
     await waitFor(() => expect(screen.getByText('No saved receipts match that search.')).toBeInTheDocument());
     expect(await db.receiptHistory.get('alpha-receipt')).toBeUndefined();
     expect(await db.receiptHistory.get('beta-receipt')).toBeDefined();
+  });
+
+  it('cancels receipt compression through AbortSignal and does not queue the scan', async () => {
+    mocks.compressReceiptImage.mockImplementation(() => new Promise(() => undefined));
+
+    const { container } = render(<Scan />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Receipt' }));
+    uploadSyntheticReceipt(container);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel scan' }));
+
+    expect(await screen.findByText('Scan cancelled.')).toBeInTheDocument();
+    expect(mocks.analyzeReceipt).not.toHaveBeenCalled();
   });
 });

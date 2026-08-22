@@ -25,12 +25,13 @@ export async function compressImage(file: File, signal?: AbortSignal): Promise<F
 }
 
 // For receipt scanning (needs higher quality for text OCR)
-export async function compressReceiptImage(file: File): Promise<File> {
+export async function compressReceiptImage(file: File, signal?: AbortSignal): Promise<File> {
   const receiptOptions = {
     maxSizeMB: 0.8,
     maxWidthOrHeight: 1920,  // Keep higher resolution for text
     useWebWorker: true,
     fileType: 'image/jpeg', // Azure receipt OCR accepts JPEG but not WebP
+    signal,
   };
 
   try {
@@ -38,6 +39,7 @@ export async function compressReceiptImage(file: File): Promise<File> {
     console.log(`Receipt compressed: ${(file.size / 1024).toFixed(0)}KB → ${(compressed.size / 1024).toFixed(0)}KB`);
     return compressed;
   } catch (error) {
+    if (signal?.aborted) throw signal.reason ?? new DOMException('Scan cancelled.', 'AbortError');
     console.error('Receipt compression failed:', error);
     return file;
   }

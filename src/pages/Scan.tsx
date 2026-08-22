@@ -205,6 +205,16 @@ export function Scan({ onBack }: ScanProps) {
     const receiptToolsTriggerRef = useRef<HTMLButtonElement>(null);
     const receiptToolsDialogRef = useRef<HTMLElement>(null);
     const receiptToolsCloseRef = useRef<HTMLButtonElement>(null);
+    const scanAbortRef = useRef<AbortController | null>(null);
+
+    const cancelScan = useCallback(() => {
+        const controller = scanAbortRef.current;
+        if (!controller || controller.signal.aborted) return;
+        setIsScanning(false);
+        setProgress(0);
+        setError('Scan cancelled.');
+        queueMicrotask(() => controller.abort());
+    }, []);
 
     // Check for camera support (HTTPS required for getUserMedia)
     // Initialize directly to avoid setState in effect
@@ -458,6 +468,9 @@ export function Scan({ onBack }: ScanProps) {
         source: ReceiptSource = 'gallery',
         queueOnFailure = true,
     ): Promise<boolean> => {
+        scanAbortRef.current?.abort();
+        const scanAbort = new AbortController();
+        scanAbortRef.current = scanAbort;
         setIsScanning(true);
         setProgress(0);
         setReceiptJobStatus('uploading');
@@ -482,8 +495,8 @@ export function Scan({ onBack }: ScanProps) {
 
         // Compress image based on scan mode
         const compressedFile = scanMode === 'receipt'
-            ? await compressReceiptImage(file)
-            : await compressImage(file);
+            ? await compressReceiptImage(file, scanAbort.signal)
+            : await compressImage(file, scanAbort.signal);
         if (scanMode === 'receipt') {
             markReceiptStep('compressed', 'done');
             markReceiptStep('sent', 'active');
@@ -560,11 +573,19 @@ export function Scan({ onBack }: ScanProps) {
             }, 300);
             return true;
         } catch (err) {
-            console.error('Scan failed:', err);
             clearInterval(progressInterval);
             setIsScanning(false);
             setProgress(0);
 
+            const aborted = scanAbort.signal.aborted
+                || (err instanceof DOMException && err.name === 'AbortError')
+                || (err instanceof Error && err.name === 'AbortError');
+            if (aborted) {
+                setError('Scan cancelled.');
+                return false;
+            }
+
+            console.error('Scan failed:', err);
             const error = err as Error;
             let userMessage = 'This item could not be analyzed. Try another photo or enter it manually.';
             if (scanMode === 'receipt') {
@@ -1253,6 +1274,9 @@ export function Scan({ onBack }: ScanProps) {
                                                     : 'READING RECEIPT'
                                         : 'SCANNING ITEM'}
                                 </span>
+                                <button type="button" className="text-[var(--text-secondary)] text-sm font-bold" onClick={cancelScan} aria-label="Cancel scan">
+                                    Cancel
+                                </button>
                             </div>
                         </div>
                     )}
