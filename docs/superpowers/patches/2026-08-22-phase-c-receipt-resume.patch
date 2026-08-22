@@ -1,0 +1,145 @@
+From c1510e1d976ec69c8c396856e0ff1e54bb5fa18e Mon Sep 17 00:00:00 2001
+From: Cursor Agent <cursoragent@cursor.com>
+Date: Sat, 22 Aug 2026 02:17:28 +0000
+Subject: [PATCH] Resume a stored receipt jobId without a second POST.
+
+Alerts freeze uses formatDate. Scan cancel passes AbortSignal into receipt compression. Meal-plan missing ingredients use shoppingCategory. Receipt recovery resumes a stored jobId without a second POST. Do not land until Phase A is on main.
+
+Co-authored-by: Codygrant3 <Codygrant3@users.noreply.github.com>
+---
+ .../services/receiptOCRService.test.ts        | 21 +++++++++++++++++++
+ .../services/receiptRecoveryService.test.ts   | 20 ++++++++++++++++--
+ src/services/receiptOCRService.ts             | 15 +++++++++++--
+ src/services/receiptRecoveryService.ts        | 10 ++++++++-
+ 4 files changed, 61 insertions(+), 5 deletions(-)
+
+diff --git a/src/__tests__/services/receiptOCRService.test.ts b/src/__tests__/services/receiptOCRService.test.ts
+index e04fe66..2a62423 100644
+--- a/src/__tests__/services/receiptOCRService.test.ts
++++ b/src/__tests__/services/receiptOCRService.test.ts
+@@ -340,4 +340,25 @@ describe('receiptOCRService', () => {
+       },
+     });
+   });
++
++  it('resumes a stored jobId without POSTing a new receipt job', async () => {
++    const completed = jsonResponse({
++      jobId: receiptJobId,
++      status: 'succeeded',
++      attempts: 1,
++      maxAttempts: 3,
++      result: mockReceiptResponse,
++    });
++    const fetchMock = vi.fn().mockResolvedValue(completed);
++    vi.stubGlobal('fetch', fetchMock);
++    const { analyzeReceipt } = await loadReceiptService();
++
++    const result = await analyzeReceipt(makeSyntheticReceiptFile(), { resumeJobId: receiptJobId });
++
++    expect(result.items).toHaveLength(2);
++    expect(fetchMock).toHaveBeenCalledTimes(1);
++    expect(fetchMock).toHaveBeenCalledWith(`/api/receipt-jobs?id=${receiptJobId}`, expect.objectContaining({
++      method: 'PUT',
++    }));
++  });
+ });
+diff --git a/src/__tests__/services/receiptRecoveryService.test.ts b/src/__tests__/services/receiptRecoveryService.test.ts
+index c61685e..10c0fd3 100644
+--- a/src/__tests__/services/receiptRecoveryService.test.ts
++++ b/src/__tests__/services/receiptRecoveryService.test.ts
+@@ -66,11 +66,27 @@ describe('receiptRecoveryService', () => {
+     await recoverQueuedReceipts({ enabled: true });
+ 
+     expect(analyzeReceiptMock).toHaveBeenCalledTimes(1);
+-    const [file, options] = analyzeReceiptMock.mock.calls[0] as [File, { cloudConsent?: boolean }];
++    const [file, options] = analyzeReceiptMock.mock.calls[0] as [File, { cloudConsent?: boolean; resumeJobId?: string }];
+     expect(file).toBeInstanceOf(File);
+     expect(file.name).toBe(queued.name);
+     expect(file.type).toBe(queued.type);
+-    expect(options).toEqual({ cloudConsent: true });
++    expect(options).toEqual(expect.objectContaining({ cloudConsent: true }));
++    expect(options.resumeJobId).toBeUndefined();
++  });
++
++  it('resumes a stored server jobId instead of opening a second reservation', async () => {
++    const queued = await queueReceiptScan(receiptFile(), 'network-error');
++    await updateQueuedReceiptScan(queued.id, { jobId: '22222222-2222-4222-8222-222222222222' });
++
++    await recoverQueuedReceipts({ enabled: true });
++
++    expect(analyzeReceiptMock).toHaveBeenCalledWith(
++      expect.any(File),
++      expect.objectContaining({
++        cloudConsent: true,
++        resumeJobId: '22222222-2222-4222-8222-222222222222',
++      }),
++    );
+   });
+ 
+   it('does not retry when stored cloud OCR consent is false (consent-required skip)', async () => {
+diff --git a/src/services/receiptOCRService.ts b/src/services/receiptOCRService.ts
+index 452fcbe..e0e9967 100644
+--- a/src/services/receiptOCRService.ts
++++ b/src/services/receiptOCRService.ts
+@@ -85,6 +85,8 @@ export interface ReceiptJobProgress {
+ export interface AnalyzeReceiptOptions {
+     onProgress?: (progress: ReceiptJobProgress) => void;
+     cloudConsent?: boolean;
++    /** Resume an already-reserved server job instead of POSTing a new one. */
++    resumeJobId?: string;
+ }
+ 
+ export type ReceiptOcrStatus =
+@@ -121,6 +123,7 @@ export interface QueuedReceiptScan {
+     retryCount: number;
+     lastRetryAt?: string;
+     lastError?: string;
++    jobId?: string;
+ }
+ 
+ const FALLBACK_PROVIDER = 'receipt-ocr';
+@@ -641,10 +644,18 @@ export async function analyzeReceipt(
+         const cached = await getCachedResponse<ReceiptAnalysisResult>(cacheKey, 'receipt');
+         if (cached) return { ...cached, cacheHit: true };
+ 
+-        const formData = new FormData();
+-        formData.append('receipt', imageFile, imageFile.name);
+         const accountHeaders = await getAuthenticatedRequestHeaders();
+         const cloudConsent = options.cloudConsent === true;
++        const resumeJobId = z.string().uuid().safeParse(options.resumeJobId);
++        if (resumeJobId.success) {
++            options.onProgress?.({ status: 'queued', jobId: resumeJobId.data });
++            const resumed = await processReceiptJob(resumeJobId.data, accountHeaders, options);
++            await setCachedResponse(cacheKey, 'receipt', resumed);
++            return resumed;
++        }
++
++        const formData = new FormData();
++        formData.append('receipt', imageFile, imageFile.name);
+         options.onProgress?.({ status: 'uploading' });
+         const response = await fetchWithTimeout(RECEIPT_JOBS_API_URL, {
+             method: 'POST',
+diff --git a/src/services/receiptRecoveryService.ts b/src/services/receiptRecoveryService.ts
+index 3f6052b..26c5237 100644
+--- a/src/services/receiptRecoveryService.ts
++++ b/src/services/receiptRecoveryService.ts
+@@ -70,7 +70,15 @@ async function retryQueuedReceipt(queued: QueuedReceiptScan, cloudConsent: boole
+ 
+     const file = new File([queued.imageBlob], queued.name, { type: queued.type });
+     try {
+-        await analyzeReceipt(file, { cloudConsent });
++        await analyzeReceipt(file, {
++            cloudConsent,
++            resumeJobId: queued.jobId,
++            onProgress: progress => {
++                if (progress.jobId && progress.jobId !== queued.jobId) {
++                    void updateQueuedReceiptScan(queued.id, { jobId: progress.jobId });
++                }
++            },
++        });
+         await clearQueuedReceiptScan(queued.id);
+     } catch (error) {
+         const message = error instanceof Error
+-- 
+2.43.0
+

@@ -241,3 +241,16 @@ Focused vitest: 34 passed. `npm run typecheck` and `npm run lint` passed on the 
 `npm run verify:release` on `c1510e1`: `PIPE_EXIT:0` — 69 files / 471 tests, device e2e 8 passed (cloud account skipped), PWA e2e pass, high-severity audit 0. Still **not** definition-of-ready item 2 (not on GitHub `main`).
 
 Apply-ready patch checked into `#6`: `docs/superpowers/patches/2026-08-22-phase-c.patch` (`git apply --check` clean on rehearsal tip `7a4be2f`). Open as file-disjoint PRs after Phase A lands on `main`.
+
+## Phase C scoped patches — 2026-08-22 (ready after merge)
+
+Split the stacked Phase C commit into four file-disjoint patches so landing does not wait on a mega-PR. Playbook: `docs/superpowers/plans/2026-08-22-phase-c-apply.md`.
+
+Verified on rehearsal tip `7a4be2f`:
+
+- each scoped patch `git apply --check` clean independently
+- sequential apply tree equals stacked `c1510e1` (`44ab905`)
+- combined patch still checks clean
+- scoped patches do **not** apply on current `main`-equivalent app tree (expected)
+
+Re-evaluated drafts `#3`–`#24`: hosted `verify` green on current heads. `#6` `8c75d08` hosted `verify` was still in progress when this split started. No merge authorization from The. Cloud gate still unavailable (no Docker, no `supabase` CLI, no `.env.local`).

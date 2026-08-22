@@ -818,7 +818,7 @@ unmerged. A local Phase A rehearsal merged those drafts onto `main` with no conf
 passed `verify:release` (467 tests). That rehearsal is not landed. `verify:release:cloud`
 is unavailable here (no Docker / Supabase / `.env.local`). A production-readiness loop is
 active (`docs/PROD_READINESS.md`); merge is waiting on The. Immediate product concerns:
-land Phase A, then open the local Phase C stack (`cursor/phase-c-stacked-3203`) as PRs,
+land Phase A, then apply the scoped Phase C patches (`docs/superpowers/plans/2026-08-22-phase-c-apply.md`) as PRs,
 re-run device/cloud release gates on merged `main`, a consented receipt-image benchmark,
 and durable server-side recovery before broad production rollout.
 

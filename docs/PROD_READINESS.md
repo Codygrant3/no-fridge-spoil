@@ -40,7 +40,20 @@ Do not squash across ownership. Re-run `gh pr checks` after each merge.
 
 ## Phase C — Stacked P1 after merge
 
-Implemented locally on `cursor/phase-c-stacked-3203` (`c1510e1`). Integrated `verify:release` passed (471 tests). Apply-ready patch: `docs/superpowers/patches/2026-08-22-phase-c.patch` (checks clean on the Phase A rehearsal tip). After Phase A lands: `git apply docs/superpowers/patches/2026-08-22-phase-c.patch` on merged `main`, then open file-disjoint PRs. Do not apply onto current `main`.
+Implemented locally on `cursor/phase-c-stacked-3203` (`c1510e1`). Integrated `verify:release` passed (471 tests). Do not apply onto current `main`.
+
+Playbook: `docs/superpowers/plans/2026-08-22-phase-c-apply.md`.
+
+Scoped apply-ready patches (file-disjoint; each checks clean on rehearsal tip `7a4be2f`; sequential apply reproduces `c1510e1`):
+
+| Patch | After-merge branch |
+| --- | --- |
+| `docs/superpowers/patches/2026-08-22-phase-c-alerts-freeze.patch` | `cursor/alerts-freeze-local-3203` |
+| `docs/superpowers/patches/2026-08-22-phase-c-scan-cancel.patch` | `cursor/scan-cancel-compress-3203` |
+| `docs/superpowers/patches/2026-08-22-phase-c-meal-plan-category.patch` | `cursor/meal-plan-shopping-category-3203` |
+| `docs/superpowers/patches/2026-08-22-phase-c-receipt-resume.patch` | `cursor/receipt-resume-jobid-3203` |
+
+Combined fallback: `docs/superpowers/patches/2026-08-22-phase-c.patch`.
 
 - Persist/resume receipt `jobId` (`#3` + `#5`)
 - Wire Scan cancel into `compressReceiptImage(file, signal)` (`#5` + `#23`)
@@ -60,5 +73,6 @@ Implemented locally on `cursor/phase-c-stacked-3203` (`c1510e1`). Integrated `ve
 - Device baseline: `npm run verify:release` passed on the unmerged docs branch (`53ae4cb`, same app code as `main`).
 - Phase A rehearsal: all 22 draft branches merged locally in checklist order with **no conflicts**. Integrated `verify:release` passed (`7a4be2f`, 467 tests). Not landed on GitHub.
 - Cloud gate: `verify:release:cloud` unavailable here (no Docker, no `supabase` CLI, no `.env.local`). Not claimed as passed.
-- File-disjoint P1s that do not touch `#3`–`#24` are exhausted. Next product work is Phase C after merge, then Phase B gates on merged `main`.
+- File-disjoint P1s that do not touch `#3`–`#24` are exhausted. Re-inspected live source for leftover `YYYY-MM-DD` grocery writes and hardcoded shopping `category: 'other'`; remaining hits are already owned by `#15` `#16` `#17` `#24` or Phase C.
+- Phase C is now four scoped patches plus a playbook, still blocked until Phase A lands.
 - This loop is active. Merge is waiting on The. Do not invent more page tests.
