@@ -120,7 +120,7 @@ File ownership is in `docs/superpowers/plans/2026-08-21-ipie-cycle-1.md`.
 
 **Evaluate:** Hosted `verify` plus Vercel passed on [#15](https://github.com/Codygrant3/no-fridge-spoil/pull/15), [#16](https://github.com/Codygrant3/no-fridge-spoil/pull/16), and [#17](https://github.com/Codygrant3/no-fridge-spoil/pull/17). Ledger [#6](https://github.com/Codygrant3/no-fridge-spoil/pull/6) re-ran green on `0f32287`. Not merged.
 
-## Cycle 6 — 2026-08-22 (in progress)
+## Cycle 6 — 2026-08-22 (closed)
 
 **Inspect:** Fifteen green drafts occupy calendar, receipt, shopping, planner, cook, alerts, and inventory files. Still free: no Profile page tests (hotspot — characterize first, do not split); ProfileSwitcher create field has no accessible name.
 
@@ -136,7 +136,7 @@ File ownership is in `docs/superpowers/plans/2026-08-21-ipie-cycle-1.md`.
 | ProfileSwitcher name | [#18](https://github.com/Codygrant3/no-fridge-spoil/pull/18) | `ProfileSwitcher.tsx`, new tests |
 | Profile characterization | [#19](https://github.com/Codygrant3/no-fridge-spoil/pull/19) | `Profile.test.tsx` only |
 
-**Evaluate:** Drafts opened; hosted CI not yet terminal at Cycle 7 start.
+**Evaluate:** Hosted `verify` plus Vercel passed on [#18](https://github.com/Codygrant3/no-fridge-spoil/pull/18) and [#19](https://github.com/Codygrant3/no-fridge-spoil/pull/19). Not merged.
 
 ## Cycle 7 — 2026-08-22 (in progress)
 
@@ -152,4 +152,6 @@ File ownership is in `docs/superpowers/plans/2026-08-21-ipie-cycle-1.md`.
 | Agent | Draft PR | Files |
 | --- | --- | --- |
 | Barcode manual name | [#20](https://github.com/Codygrant3/no-fridge-spoil/pull/20) | `BarcodeScanner.tsx`, new tests |
-| Onboarding checklist | (pending push) | `OnboardingCarousel.test.tsx` |
+| Onboarding checklist | [#21](https://github.com/Codygrant3/no-fridge-spoil/pull/21) | `OnboardingCarousel.test.tsx` only |
+
+**Evaluate:** Hosted `verify` plus Vercel passed on [#20](https://github.com/Codygrant3/no-fridge-spoil/pull/20). [#21](https://github.com/Codygrant3/no-fridge-spoil/pull/21) opened; hosted CI not yet terminal.
