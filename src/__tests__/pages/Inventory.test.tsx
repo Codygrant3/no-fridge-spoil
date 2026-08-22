@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { InventoryItem } from '../../types';
@@ -107,14 +107,15 @@ describe('Inventory local-calendar actions', () => {
     const user = userEvent.setup();
     render(<Inventory />);
 
-    expect(screen.getByText('Due Later Beans')).toBeInTheDocument();
+    const inventorySection = () => screen.getByRole('region', { name: 'Inventory' });
+    expect(within(inventorySection()).getByText('Due Later Beans')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /search inventory/i }));
     await user.click(screen.getByRole('button', { name: /needs attention/i }));
 
-    expect(screen.getByText('Due Today Yogurt')).toBeInTheDocument();
-    expect(screen.getByText('Due In Week Milk')).toBeInTheDocument();
-    expect(screen.queryByText('Due Later Beans')).not.toBeInTheDocument();
+    expect(within(inventorySection()).getByText('Due Today Yogurt')).toBeInTheDocument();
+    expect(within(inventorySection()).getByText('Due In Week Milk')).toBeInTheDocument();
+    expect(within(inventorySection()).queryByText('Due Later Beans')).not.toBeInTheDocument();
   });
 
   it('freezes a fridge item due in 2-3 days with a local +30 expiration', async () => {
