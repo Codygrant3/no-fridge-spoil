@@ -129,4 +129,11 @@ File ownership is in `docs/superpowers/plans/2026-08-21-ipie-cycle-1.md`.
 1. Profile characterization for local-first sections (unsigned-in). Tests only unless a name is missing.
 2. ProfileSwitcher: name the create field; switch / create / cancel-delete tests.
 
-**Implement:** (PRs after agents push)
+**Implement:**
+
+| Agent | Draft PR | Files |
+| --- | --- | --- |
+| ProfileSwitcher name | [#18](https://github.com/Codygrant3/no-fridge-spoil/pull/18) | `ProfileSwitcher.tsx`, new tests |
+| Profile characterization | [#19](https://github.com/Codygrant3/no-fridge-spoil/pull/19) | `Profile.test.tsx` only |
+
+**Evaluate:** Drafts opened; hosted CI not yet terminal.
