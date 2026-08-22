@@ -136,4 +136,15 @@ File ownership is in `docs/superpowers/plans/2026-08-21-ipie-cycle-1.md`.
 | ProfileSwitcher name | [#18](https://github.com/Codygrant3/no-fridge-spoil/pull/18) | `ProfileSwitcher.tsx`, new tests |
 | Profile characterization | [#19](https://github.com/Codygrant3/no-fridge-spoil/pull/19) | `Profile.test.tsx` only |
 
-**Evaluate:** Drafts opened; hosted CI not yet terminal.
+**Evaluate:** Drafts opened; hosted CI not yet terminal at Cycle 7 start.
+
+## Cycle 7 — 2026-08-22 (in progress)
+
+**Inspect:** `#3`–`#19` occupy receipt, shopping, planner, cook, alerts, inventory, calendar services, Profile tests, and ProfileSwitcher. Still free and user-visible: no OnboardingCarousel tests; BarcodeScanner manual field has placeholder only.
+
+**Plan:** Two file-disjoint agents from `main`. Ownership in `docs/superpowers/plans/2026-08-22-ipie-cycle-7.md`.
+
+1. Onboarding checklist characterization (dismiss, scan, warning days, notifications gated on first item).
+2. BarcodeScanner: name the manual field; close / manual lookup / HTTPS camera-error tests. Mock camera.
+
+**Implement:** (PRs after agents push)

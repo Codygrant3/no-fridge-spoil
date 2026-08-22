@@ -17,7 +17,7 @@ The modern platform tree is on `main` (checkpoint `7909077`, CI-parity merge `0c
 At the 2026-08-21 IPIE refresh:
 
 - Hosted CI now runs typecheck, PWA e2e, and `npm audit --audit-level=high` (PR #2).
-- Draft PRs #3–#17 cover receipt recovery, shorthand, OCR diagnostics, IPIE docs, shopping/planner/review/recipes/cook/alerts/substitutions characterization, and local-calendar date fixes.
+- Draft PRs #3–#19 cover receipt recovery, shorthand, OCR diagnostics, IPIE docs, shopping/planner/review/recipes/cook/alerts/substitutions/inventory/calendar characterization, and Profile local-first tests.
 - Do not reset, clean, restore, or check out files to make the tree look tidy.
 - Do not assume an untracked file is disposable.
 - Inspect `git status --short` before editing and preserve changes outside the requested scope.
