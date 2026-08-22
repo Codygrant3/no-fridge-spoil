@@ -63,7 +63,7 @@ describe('ProfileSwitcher', () => {
     render(<ProfileSwitcher />);
 
     const user = await openSwitcher();
-    await user.click(screen.getByRole('button', { name: 'Chris' }));
+    await user.click(screen.getByRole('button', { name: /👨\s*chris/i }));
 
     expect(mocks.switchProfile).toHaveBeenCalledWith('profile-chris');
   });
