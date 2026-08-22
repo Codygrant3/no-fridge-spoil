@@ -19,6 +19,7 @@
     "test:e2e:pwa": "playwright test --config=playwright.production.config.ts",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
+    "env:local-supabase": "tsx scripts/write-local-supabase-env.ts",
     "verify:cloud": "node --env-file=.env.local ./node_modules/tsx/dist/cli.mjs scripts/verify-cloud-foundation.ts",
     "verify:migrations": "tsx scripts/verify-migrations.ts",
     "test:load": "tsx scripts/load-smoke.ts",

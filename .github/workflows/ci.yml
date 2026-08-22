@@ -56,3 +56,45 @@ jobs:
       - run: npm run test:e2e
       - run: npm run test:e2e:pwa
       - run: npm audit --audit-level=high
+
+  cloud:
+    name: cloud
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.115.0
+      - name: Start disposable local Supabase
+        run: supabase start
+      - name: Write generated local cloud env
+        run: npm run env:local-supabase
+      - name: Cloud foundation
+        run: npm run verify:cloud
+
+      - name: Resolve Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.playwright.outputs.version }}
+      - name: Install Playwright browser
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium
+      - name: Install Playwright system dependencies
+        run: npx playwright install-deps chromium
+      - name: Cloud E2E
+        run: npm run test:e2e:cloud
+      - name: Stop disposable local Supabase
+        if: always()
+        continue-on-error: true
+        run: supabase stop --no-backup
