@@ -289,6 +289,20 @@ Re-read drafts after the prod-readiness timer. No human merge comment. Sampled `
 | --- | --- | --- |
 | Alerts freeze local date | [#14](https://github.com/Codygrant3/no-fridge-spoil/pull/14) `934234f` | `Alerts.tsx`, `Alerts.test.tsx` |
 
-**Evaluate:** Focused `npx vitest run src/__tests__/pages/Alerts.test.tsx` — 5 passed. `npm run typecheck` and `npm run lint` passed in the `#14` worktree. Hosted `verify` on `934234f` is pending. Do not re-apply `2026-08-22-phase-c-alerts-freeze.patch` after Phase A if `#14` lands.
+**Evaluate:** Focused `npx vitest run src/__tests__/pages/Alerts.test.tsx` — 5 passed. `npm run typecheck` and `npm run lint` passed in the `#14` worktree. Hosted `verify` passed on `934234f` (2m53s). Do not re-apply `2026-08-22-phase-c-alerts-freeze.patch` after Phase A if `#14` lands.
 
-No merge authorization from The. Remaining Phase C: Scan cancel, meal-plan `shoppingCategory`, receipt `jobId` resume.
+## Cycle 12 — 2026-08-22 (closed)
+
+**Inspect:** Meal-plan missing-ingredient adds still hardcoded `category: 'other'`. `#17` already owns `mealPlanService.ts` and its tests. `#8` already exports `shoppingCategory` as a one-line change. Scan cancel still needs a multi-line `#23` compression API plus `#5` Scan wiring. Receipt `jobId` resume still needs `#3`+`#5`.
+
+**Plan:** Put the meal-plan category hunk on `#17` and add the same `export` `#8` already has. Do not open a second meal-plan branch. Do not copy `#23` onto `#5`.
+
+**Implement:**
+
+| Agent | Draft PR | Files |
+| --- | --- | --- |
+| Meal-plan shopping category | [#17](https://github.com/Codygrant3/no-fridge-spoil/pull/17) `e3f5cdb` | `mealPlanService.ts`, test, `shoppingActionService.ts` export |
+
+**Evaluate:** Focused `npx vitest run src/__tests__/services/mealPlanService.test.ts` — 3 passed. `npm run typecheck` and `npm run lint` passed in the `#17` worktree. Hosted `verify` on `e3f5cdb` is pending.
+
+[#6](https://github.com/Codygrant3/no-fridge-spoil/pull/6) `834abfc` hosted `verify` passed (2m14s). No merge authorization from The. Remaining Phase C: Scan cancel, receipt `jobId` resume.

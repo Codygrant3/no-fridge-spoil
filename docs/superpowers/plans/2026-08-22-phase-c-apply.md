@@ -7,9 +7,12 @@ Apply only after Phase A lands on GitHub `main`.
 **Alerts freeze is already on draft `#14` (`934234f`).** Skip
 `2026-08-22-phase-c-alerts-freeze.patch` if `#14` merged with that commit.
 
-The remaining three patches are file-disjoint and apply independently. Keep
-the combined patch as a one-shot fallback only when `#14` did **not** land
-the freeze hunk.
+**Meal-plan `shoppingCategory` is already on draft `#17` (`e3f5cdb`).** Skip
+`2026-08-22-phase-c-meal-plan-category.patch` if `#17` merged with that commit.
+
+The remaining two patches are file-disjoint and apply independently. Keep
+the combined patch as a one-shot fallback only when `#14`/`#17` did **not**
+land their hunks.
 
 ## After Phase A is on `main`
 
@@ -24,6 +27,7 @@ git checkout main
 git checkout -b cursor/scan-cancel-compress-3203
 git apply docs/superpowers/patches/2026-08-22-phase-c-scan-cancel.patch
 
+# Skip this block when #17 already categorized missing ingredients.
 git checkout main
 git checkout -b cursor/meal-plan-shopping-category-3203
 git apply docs/superpowers/patches/2026-08-22-phase-c-meal-plan-category.patch
