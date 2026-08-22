@@ -17,7 +17,7 @@ The modern platform tree is on `main` (checkpoint `7909077`, CI-parity merge `0c
 At the 2026-08-21 IPIE refresh:
 
 - Hosted CI now runs typecheck, PWA e2e, and `npm audit --audit-level=high` (PR #2).
-- Draft PRs #3–#14 cover receipt recovery, shorthand, OCR diagnostics, IPIE docs, and characterization for shopping, planner, review, recipes, cook, alerts, and substitutions.
+- Draft PRs #3–#17 cover receipt recovery, shorthand, OCR diagnostics, IPIE docs, shopping/planner/review/recipes/cook/alerts/substitutions characterization, and local-calendar date fixes.
 - Do not reset, clean, restore, or check out files to make the tree look tidy.
 - Do not assume an untracked file is disposable.
 - Inspect `git status --short` before editing and preserve changes outside the requested scope.
@@ -813,8 +813,8 @@ For the next Cursor session:
 
 The project is a functioning, tested local-first application with optional Supabase collaboration
 and provider-neutral server OCR. `main` is checkpointed and hosted device CI matches the local
-device release gate. Continuing work uses the IPIE loop. Cycles 0–4 are closed with twelve green
-drafts (#3–#14); Cycle 5 is paused on hotspot/open-PR collisions. Immediate product concerns:
+device release gate. Continuing work uses the IPIE loop. Cycles 0–5 are closed with fifteen green
+drafts (#3–#17); Cycle 6 characterizes Profile without splitting it. Immediate product concerns:
 merge or iterate those drafts, then a consented receipt-image benchmark and durable server-side
 recovery before broad production rollout.
 

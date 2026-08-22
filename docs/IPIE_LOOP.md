@@ -118,4 +118,15 @@ File ownership is in `docs/superpowers/plans/2026-08-21-ipie-cycle-1.md`.
 | Sealed shelf-life dates | [#16](https://github.com/Codygrant3/no-fridge-spoil/pull/16) | `sealedShelfLifeService.ts`, new tests |
 | Meal-plan week start | [#17](https://github.com/Codygrant3/no-fridge-spoil/pull/17) | `mealPlanService.ts`, new tests |
 
-**Evaluate:** Drafts opened; hosted CI not yet terminal.
+**Evaluate:** Hosted `verify` plus Vercel passed on [#15](https://github.com/Codygrant3/no-fridge-spoil/pull/15), [#16](https://github.com/Codygrant3/no-fridge-spoil/pull/16), and [#17](https://github.com/Codygrant3/no-fridge-spoil/pull/17). Ledger [#6](https://github.com/Codygrant3/no-fridge-spoil/pull/6) re-ran green on `0f32287`. Not merged.
+
+## Cycle 6 — 2026-08-22 (in progress)
+
+**Inspect:** Fifteen green drafts occupy calendar, receipt, shopping, planner, cook, alerts, and inventory files. Still free: no Profile page tests (hotspot — characterize first, do not split); ProfileSwitcher create field has no accessible name.
+
+**Plan:** Two file-disjoint agents from `main`. Ownership in `docs/superpowers/plans/2026-08-22-ipie-cycle-6.md`.
+
+1. Profile characterization for local-first sections (unsigned-in). Tests only unless a name is missing.
+2. ProfileSwitcher: name the create field; switch / create / cancel-delete tests.
+
+**Implement:** (PRs after agents push)
