@@ -7,6 +7,7 @@
  */
 
 import type { StorageLocation } from '../types';
+import { calculateExpirationFromShelfLife } from '../utils/dateUtils';
 
 export interface ShelfLifeDefaults {
     sealedDays: number;         // Days from purchase to expected expiration
@@ -140,7 +141,5 @@ export function getShelfLifeDefaults(itemName: string): ShelfLifeDefaults | null
  * Returns YYYY-MM-DD format.
  */
 export function estimateExpirationDate(sealedDays: number): string {
-    const date = new Date();
-    date.setDate(date.getDate() + sealedDays);
-    return date.toISOString().split('T')[0];
+    return calculateExpirationFromShelfLife(sealedDays);
 }
