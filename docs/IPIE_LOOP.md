@@ -240,4 +240,4 @@ Focused vitest: 34 passed. `npm run typecheck` and `npm run lint` passed on the 
 
 `npm run verify:release` on `c1510e1`: `PIPE_EXIT:0` — 69 files / 471 tests, device e2e 8 passed (cloud account skipped), PWA e2e pass, high-severity audit 0. Still **not** definition-of-ready item 2 (not on GitHub `main`).
 
-Open as file-disjoint PRs after Phase A lands on `main`.
+Apply-ready patch checked into `#6`: `docs/superpowers/patches/2026-08-22-phase-c.patch` (`git apply --check` clean on rehearsal tip `7a4be2f`). Open as file-disjoint PRs after Phase A lands on `main`.
