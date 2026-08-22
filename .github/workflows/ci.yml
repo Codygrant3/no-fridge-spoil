@@ -70,7 +70,7 @@ jobs:
       - run: npm ci
       - uses: supabase/setup-cli@v3
         with:
-          version: 2.84.2
+          version: 2.115.0
       - name: Start disposable local Supabase
         run: supabase start
       - name: Write generated local cloud env
@@ -96,4 +96,5 @@ jobs:
         run: npm run test:e2e:cloud
       - name: Stop disposable local Supabase
         if: always()
+        continue-on-error: true
         run: supabase stop --no-backup
