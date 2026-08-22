@@ -139,6 +139,7 @@ export function ProfileSwitcher() {
                                     value={newName}
                                     onChange={e => setNewName(e.target.value)}
                                     placeholder="Profile name"
+                                    aria-label="Profile name"
                                     className="market-input"
                                     autoFocus
                                     onKeyDown={e => { if (e.key === 'Enter') handleCreate(); }}
