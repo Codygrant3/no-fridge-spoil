@@ -5,7 +5,7 @@ import { belongsToActiveHousehold, localMutationFields } from './localMutationSe
 import { isCloudConfigured } from './supabaseClient';
 import { generateUUID } from '../utils/uuid';
 
-function shoppingCategory(name: string): 'produce' | 'dairy' | 'meat' | 'frozen' | 'pantry' | 'beverages' | 'other' {
+export function shoppingCategory(name: string): 'produce' | 'dairy' | 'meat' | 'frozen' | 'pantry' | 'beverages' | 'other' {
     const value = name.toLowerCase();
     if (/(milk|cheese|yogurt|cream|butter|egg)/.test(value)) return 'dairy';
     if (/(chicken|beef|pork|fish|salmon|turkey|meat)/.test(value)) return 'meat';
