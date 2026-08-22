@@ -16,7 +16,7 @@ All of these must be true:
 2. `npm run verify:release` has passed on the merged tree (not claimed from skipped runs).
 3. `npm run verify:release:cloud` has passed against a local Supabase stack, or the skip is recorded as unavailable.
 4. Receipt retry no longer depends on a manual button for signed-in online households (`#3`).
-5. `YYYY-MM-DD` grocery dates on Inventory, meal-plan week start, sealed estimates, Alerts freeze, and usage “today” (`#24`) use local calendar helpers.
+5. `YYYY-MM-DD` grocery dates on Inventory, meal-plan week start, sealed estimates, Alerts freeze (`#14`), and usage “today” (`#24`) use local calendar helpers.
 6. Shopping adds use `shoppingCategory` (`#8`); meal-plan missing-ingredient adds follow after `#8` lands.
 7. Receipt compression can abort (`#23`) and Scan actually passes a signal (stacks on `#5` + `#23`).
 8. Remaining honest blockers are written down: consented receipt-image benchmark, hardware QA, Hobby cron still daily.
@@ -41,24 +41,24 @@ Do not squash across ownership. Re-run `gh pr checks` after each merge.
 
 ## Phase C — Stacked P1 after merge
 
-Implemented locally on `cursor/phase-c-stacked-3203` (`c1510e1`). Integrated `verify:release` passed (471 tests). Do not apply onto current `main`.
+Alerts freeze now lives on draft `#14` (`934234f`). Do **not** re-apply `2026-08-22-phase-c-alerts-freeze.patch` after Phase A if `#14` landed.
+
+The other three stacked P1s remain local-only on `cursor/phase-c-stacked-3203` (`c1510e1`). Integrated `verify:release` passed (471 tests). Do not apply onto current `main`.
 
 Playbook: `docs/superpowers/plans/2026-08-22-phase-c-apply.md`.
 
-Scoped apply-ready patches (file-disjoint; each checks clean on rehearsal tip `7a4be2f`; sequential apply reproduces `c1510e1`):
+Remaining scoped apply-ready patches (file-disjoint; each checks clean on rehearsal tip `7a4be2f`):
 
 | Patch | After-merge branch |
 | --- | --- |
-| `docs/superpowers/patches/2026-08-22-phase-c-alerts-freeze.patch` | `cursor/alerts-freeze-local-3203` |
 | `docs/superpowers/patches/2026-08-22-phase-c-scan-cancel.patch` | `cursor/scan-cancel-compress-3203` |
 | `docs/superpowers/patches/2026-08-22-phase-c-meal-plan-category.patch` | `cursor/meal-plan-shopping-category-3203` |
 | `docs/superpowers/patches/2026-08-22-phase-c-receipt-resume.patch` | `cursor/receipt-resume-jobid-3203` |
 
-Combined fallback: `docs/superpowers/patches/2026-08-22-phase-c.patch`.
+Combined fallback still includes the already-landed Alerts hunk: `docs/superpowers/patches/2026-08-22-phase-c.patch`. Prefer the scoped remaining patches.
 
 - Persist/resume receipt `jobId` (`#3` + `#5`)
 - Wire Scan cancel into `compressReceiptImage(file, signal)` (`#5` + `#23`)
-- Alerts freeze local calendar (`#14`)
 - Meal-plan shopping `category` via `shoppingCategory` (`#8` + `#17`)
 
 ## Phase D — Cannot close in this loop
@@ -70,12 +70,11 @@ Combined fallback: `docs/superpowers/patches/2026-08-22-phase-c.patch`.
 ## Current snapshot — 2026-08-22
 
 - `main`: `0c8fbf4`
-- Drafts `#3`–`#24`: hosted `verify` green, unmerged. `#24` confirmed green on `678c6cf`.
-- Draft `#25`: hosted `verify` + `cloud` green on `776a3c6`. Closes the disposable-Supabase CI P1. Unmerged.
+- Drafts `#3`–`#25` remain drafts. `#24` hosted `verify` green on `678c6cf`. `#25` hosted `verify` + `cloud` green on `776a3c6`.
+- Draft `#14` now also writes Alerts freeze dates with `formatDate` (`934234f`). Focused vitest 5 passed; typecheck/lint passed. Hosted `verify` on that head is pending.
 - Device baseline: `npm run verify:release` passed on the unmerged docs branch (`53ae4cb`, same app code as `main`).
-- Phase A rehearsal: all 22 draft branches merged locally in checklist order with **no conflicts**. Integrated `verify:release` passed (`7a4be2f`, 467 tests). Not landed on GitHub. Does not yet include `#25`.
+- Phase A rehearsal: `#3`–`#24` merged locally with **no conflicts**. Integrated `verify:release` passed (`7a4be2f`, 467 tests). Not landed on GitHub. Does not yet include `#25`.
 - Cloud gate: hosted `cloud` job passed on `#25` against disposable local Supabase. The exact local command `npm run verify:release:cloud` was not run here (no Docker). Not claimed as passed.
-- File-disjoint product P1s that do not touch `#3`–`#25` are exhausted. Remaining product work is Phase C after merge.
-- Phase C is four scoped patches plus a playbook, still blocked until Phase A lands.
-- Latest `#6` Vercel previews are Hobby-rate-limited. Hosted `verify` on `9018e7b` passed.
+- Remaining Phase C after merge: Scan cancel, meal-plan `shoppingCategory`, receipt `jobId` resume. Do not re-apply the Alerts freeze patch if `#14` landed.
+- Latest `#6` Vercel previews are Hobby-rate-limited. Hosted `verify` on `e7322d3` passed.
 - This loop is active. Merge is waiting on The. Do not invent more page tests.

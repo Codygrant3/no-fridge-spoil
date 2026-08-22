@@ -4,14 +4,19 @@ Do **not** apply these patches onto current `main` (`0c8fbf4`) or onto `#6`.
 They were cut from the Phase A rehearsal tip `7a4be2f` → stacked commit `c1510e1`.
 Apply only after Phase A lands on GitHub `main`.
 
-The four patches are file-disjoint and apply independently. Sequential apply
-reproduces the stacked tree `44ab905`. Keep the combined patch as a one-shot fallback.
+**Alerts freeze is already on draft `#14` (`934234f`).** Skip
+`2026-08-22-phase-c-alerts-freeze.patch` if `#14` merged with that commit.
+
+The remaining three patches are file-disjoint and apply independently. Keep
+the combined patch as a one-shot fallback only when `#14` did **not** land
+the freeze hunk.
 
 ## After Phase A is on `main`
 
 From a clean checkout of merged `main`:
 
 ```bash
+# Skip this block when #14 already wrote freeze dates with formatDate.
 git checkout -b cursor/alerts-freeze-local-3203
 git apply docs/superpowers/patches/2026-08-22-phase-c-alerts-freeze.patch
 
