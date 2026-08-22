@@ -40,7 +40,7 @@ Do not squash across ownership. Re-run `gh pr checks` after each merge.
 
 ## Phase C — Stacked P1 after merge
 
-Implemented locally on `cursor/phase-c-stacked-3203` (`c1510e1`). Integrated `verify:release` passed (471 tests). Do not open against `main` until Phase A lands.
+Implemented locally on `cursor/phase-c-stacked-3203` (`c1510e1`). Integrated `verify:release` passed (471 tests). Apply-ready patch: `docs/superpowers/patches/2026-08-22-phase-c.patch` (checks clean on the Phase A rehearsal tip). After Phase A lands: `git apply docs/superpowers/patches/2026-08-22-phase-c.patch` on merged `main`, then open file-disjoint PRs. Do not apply onto current `main`.
 
 - Persist/resume receipt `jobId` (`#3` + `#5`)
 - Wire Scan cancel into `compressReceiptImage(file, signal)` (`#5` + `#23`)
