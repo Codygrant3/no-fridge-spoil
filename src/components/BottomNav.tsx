@@ -22,6 +22,12 @@ export function BottomNav({ currentTab, onTabChange, onFabClick, onTabIntent, al
     return (
         <nav className="market-bottom-nav pb-safe" aria-label="Primary navigation">
             <div className="market-bottom-nav-inner">
+                <div className="market-nav-track" aria-hidden="true">
+                    <span style={{
+                        transform: `translateX(${Math.max(0, tabs.findIndex(tab => tab.key === currentTab)) * 100}%)`,
+                        opacity: tabs.some(tab => tab.key === currentTab) ? 1 : 0,
+                    }} />
+                </div>
                 {tabs.map(({ key, label, icon: Icon, showBadge }) => {
                     const isActive = currentTab === key;
                     return (

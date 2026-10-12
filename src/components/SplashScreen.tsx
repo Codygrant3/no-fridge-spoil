@@ -7,9 +7,9 @@ type SplashScreenProps = {
 const INTRO_DURATION_MS = 3_600;
 
 const RECOGNIZED_ITEMS = [
-    { name: 'Baby spinach', status: 'Fresh 6d', tone: 'fresh' },
-    { name: 'Greek yogurt', status: 'Use soon 2d', tone: 'soon' },
-    { name: 'Salmon fillet', status: 'Tonight', tone: 'today' },
+    { name: 'Baby spinach', status: 'Fresh 6d', tone: 'fresh', image: 'baby-spinach' },
+    { name: 'Greek yogurt', status: 'Use soon 2d', tone: 'soon', image: 'greek-yogurt' },
+    { name: 'Salmon fillet', status: 'Tonight', tone: 'today', image: 'salmon-fillet' },
 ] as const;
 
 export function SplashScreen({ onComplete }: SplashScreenProps) {
@@ -25,21 +25,40 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
     useEffect(() => {
         const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         const appShell = document.querySelector<HTMLElement>('.editorial-shell');
+        const previousInert = appShell?.hasAttribute('inert');
+        const previousHidden = appShell?.getAttribute('aria-hidden');
         appShell?.setAttribute('inert', '');
         appShell?.setAttribute('aria-hidden', 'true');
         const focusFrame = window.requestAnimationFrame(() => skipRef.current?.focus());
-        const completionTimer = window.setTimeout(completeSplash, INTRO_DURATION_MS);
+        const motionPreference = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+        // An explicitly replayed intro is a static, dismissible preview in reduced motion.
+        const completionTimer = motionPreference?.matches
+            ? undefined
+            : window.setTimeout(completeSplash, INTRO_DURATION_MS);
+        const handleMotionChange = (event: MediaQueryListEvent) => {
+            if (event.matches) completeSplash();
+        };
+        motionPreference?.addEventListener('change', handleMotionChange);
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.key === 'Escape') completeSplash();
+            if (event.key === 'Tab') {
+                event.preventDefault();
+                skipRef.current?.focus();
+            }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => {
             window.cancelAnimationFrame(focusFrame);
             window.clearTimeout(completionTimer);
+            motionPreference?.removeEventListener('change', handleMotionChange);
             window.removeEventListener('keydown', handleKeyDown);
-            appShell?.removeAttribute('inert');
-            appShell?.removeAttribute('aria-hidden');
-            previouslyFocused?.focus();
+            if (!previousInert) appShell?.removeAttribute('inert');
+            if (previousHidden == null) appShell?.removeAttribute('aria-hidden');
+            else appShell?.setAttribute('aria-hidden', previousHidden);
+            const focusTarget = previouslyFocused && previouslyFocused !== document.body && previouslyFocused.isConnected
+                ? previouslyFocused
+                : appShell?.querySelector<HTMLElement>('main');
+            focusTarget?.focus({ preventScroll: true });
         };
     }, [completeSplash]);
 
@@ -98,11 +117,15 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
                     <div className="motion-intro-results">
                         {RECOGNIZED_ITEMS.map(item => (
                             <div className={`motion-intro-result is-${item.tone}`} key={item.name}>
-                                <span />
+                                <img src={`/market/${item.image}.webp`} alt="" width="40" height="40" />
                                 <strong>{item.name}</strong>
                                 <small>{item.status}</small>
                             </div>
                         ))}
+                    </div>
+                    <div className="motion-intro-ready">
+                        <svg viewBox="0 0 24 24" fill="none"><path d="m5 12 4 4L19 6" /></svg>
+                        Your use-first plan, ready
                     </div>
                 </div>
 
@@ -114,7 +137,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
                 <div className="motion-intro-progress" aria-hidden="true">
                     <span />
                 </div>
-                <p className="sr-only" role="status">Preparing your freshness dashboard.</p>
+                <p className="sr-only">A preview of how receipts become a freshness plan. Skip intro to enter your kitchen.</p>
             </div>
         </div>
     );
