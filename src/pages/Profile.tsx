@@ -81,7 +81,7 @@ type PendingBackup = {
     inspection: BackupInspectionResult;
 };
 
-export function Profile() {
+export function Profile({ onReplayIntro }: { onReplayIntro?: () => void }) {
     const auth = useOptionalAuth();
     const [diagnostics, setDiagnostics] = useState<ReceiptDiagnostics>(() => getReceiptOcrDiagnostics());
     const [isChecking, setIsChecking] = useState(false);
@@ -409,6 +409,11 @@ export function Profile() {
                     <p className="editorial-kicker">Account & data</p>
                     <h1>Profile</h1>
                 </div>
+                {onReplayIntro && (
+                    <button type="button" className="market-replay-intro" onClick={onReplayIntro}>
+                        <ArrowsClockwise size={17} aria-hidden="true" /> Replay intro
+                    </button>
+                )}
             </header>
 
             {feedback && <div className="editorial-toast" role="status">{feedback}</div>}

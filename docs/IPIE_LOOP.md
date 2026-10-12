@@ -347,3 +347,11 @@ Re-read drafts after the prod-readiness timer. No human merge comment. Sampled `
 - Hosted CI on `ef7c4eb` (`https://github.com/Codygrant3/no-fridge-spoil/actions/runs/32576244408`): `verify` **passed**, `cloud` **passed** (disposable `supabase start`, generated env, `verify:cloud`, `test:e2e:cloud`). That is not the local `verify:release:cloud` command.
 
 Remaining rollout work is Phase D only: consented receipt-image OCR benchmark, physical iOS Safari / Android Chrome QA, and more-than-daily Hobby cron. Do not invent more page tests.
+
+## Local animation upgrade - 2026-10-12
+
+**Inspect:** Main verified at `c280417`. Existing cream/green editorial UI and receipt intro preserved. `.agents` contains no additional skills. User authorizes local implementation and verification only; no remote publication or parallel cloud branches.
+
+**Plan / ownership:** This isolated task owns SplashScreen, App intro/route integration, BottomNav, Profile replay control, Inventory filter semantics, intro/UI CSS, and focused motion tests. No API import or NodeNext changes. Native CSS avoids runtime/video dependencies and reuses existing food images.
+
+**Evaluate:** Typecheck, lint, 477 unit tests, build/bundle/security checks, 13 browser tests (1 cloud skip), and production offline PWA test passed. Mobile walkthrough recorded. See `docs/ANIMATION_QA.md`. Publication remains deferred.

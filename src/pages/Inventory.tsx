@@ -212,6 +212,7 @@ export function Inventory({ onNavigate }: InventoryProps) {
                                 key={value}
                                 type="button"
                                 className={filter === value ? 'is-active' : ''}
+                                aria-pressed={filter === value}
                                 onClick={() => {
                                     setFilter(value);
                                     setVisibleItemCount(24);

@@ -191,7 +191,7 @@ function AppContent() {
       case 'stats': return <Stats onBack={() => handleTabChange('inventory')} />;
       case 'alerts': return <Alerts onNavigate={handleTabChange} />;
       case 'planner': return <MealPlanner onBack={() => handleTabChange('recipes')} />;
-      case 'profile': return <Profile />;
+      case 'profile': return <Profile onReplayIntro={() => setShowSplash(true)} />;
       default: return <Inventory onNavigate={handleTabChange} />;
     }
   };
@@ -201,7 +201,7 @@ function AppContent() {
       {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
 
       <div className="editorial-shell h-screen w-screen bg-[var(--bg-primary)] flex flex-col overflow-hidden relative">
-        <main ref={mainRef} className="editorial-main flex-1 overflow-y-auto relative">
+        <main key={currentTab} ref={mainRef} tabIndex={-1} className={`editorial-main flex-1 overflow-y-auto relative${showSplash ? '' : ' is-ready'}`}>
           <Suspense fallback={<PageLoadingFallback />}>
             {renderPage()}
           </Suspense>
