@@ -10,17 +10,17 @@ import {
     receiptQuotaHeaders,
     reserveProjectReceiptBudget,
     reserveReceiptScan,
-} from './receipt-ocr';
+} from './receipt-ocr.js';
 import {
     authorizeHouseholdRequest,
     serverRequestErrorResponse,
     type AuthorizedHouseholdRequest,
-} from '../server/supabaseServer';
+} from '../server/supabaseServer.js';
 import {
     processNextReceiptJob,
     RECEIPT_UPLOAD_BUCKET,
     type ReceiptJobStatus,
-} from '../server/receiptJobs';
+} from '../server/receiptJobs.js';
 
 interface ReceiptJobRecord {
     id: string;

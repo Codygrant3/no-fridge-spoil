@@ -21,6 +21,7 @@ jobs:
       - run: npm ci
       - run: npm run verify:migrations
       - run: npm run typecheck
+      - run: npm run test:api-runtime
       - run: npm run lint
 
       - name: Resolve Playwright version

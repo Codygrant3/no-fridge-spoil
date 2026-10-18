@@ -1,8 +1,8 @@
 /// <reference types="node" />
 
-import { logServerEvent } from '../server/observability';
-import { createServiceAdminClient } from '../server/supabaseServer';
-import { isAuthorizedCronRequest } from '../server/cronAuth';
+import { logServerEvent } from '../server/observability.js';
+import { createServiceAdminClient } from '../server/supabaseServer.js';
+import { isAuthorizedCronRequest } from '../server/cronAuth.js';
 
 interface HealthCheck {
     status: 'ok' | 'degraded' | 'failed';

@@ -5,7 +5,7 @@ import {
     ServerRequestError,
     serverRequestErrorResponse,
     type AuthenticatedRequest,
-} from '../server/supabaseServer';
+} from '../server/supabaseServer.js';
 
 const EXPORT_TABLES = [
     'household_profiles',

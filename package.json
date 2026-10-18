@@ -14,6 +14,7 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:api-runtime": "tsx scripts/test-api-runtime.ts",
     "test:e2e": "playwright test",
     "test:e2e:cloud": "node --env-file=.env.local ./node_modules/@playwright/test/cli.js test --config=playwright.cloud.config.ts",
     "test:e2e:pwa": "playwright test --config=playwright.production.config.ts",
@@ -26,7 +27,7 @@
     "security:scan-dist": "tsx scripts/scan-build-secrets.ts",
     "performance:check-bundles": "tsx scripts/check-bundle-budgets.ts",
     "typecheck": "tsc -b --force",
-    "verify:release": "npm run typecheck && npm run lint && npm run test:run && npm run build && npm run verify:migrations && npm run test:e2e && npm run test:e2e:pwa && npm audit --audit-level=high",
+    "verify:release": "npm run typecheck && npm run test:api-runtime && npm run lint && npm run test:run && npm run build && npm run verify:migrations && npm run test:e2e && npm run test:e2e:pwa && npm audit --audit-level=high",
     "verify:release:cloud": "npm run verify:release && npm run verify:cloud && npm run test:e2e:cloud",
     "deploy:vercel": "npm run verify:release && npx vercel --prod"
   },
