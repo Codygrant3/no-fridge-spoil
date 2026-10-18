@@ -5,14 +5,14 @@ import {
     categorizeReceiptItem,
     type AzureReceiptAnalysis,
     type AzureReceiptLineItem,
-} from '../src/services/azureReceiptMapper';
+} from '../src/services/azureReceiptMapper.js';
 import {
     normalizeReceiptAliasKey,
     resolveReceiptItem,
     type ReceiptCatalogCandidate,
     type ReceiptItemAlias,
-} from '../src/services/receiptItemResolver';
-import { extractStableBarcodes, lookupOpenFoodFactsProduct } from './openFoodFacts';
+} from '../src/services/receiptItemResolver.js';
+import { extractStableBarcodes, lookupOpenFoodFactsProduct } from './openFoodFacts.js';
 
 interface HouseholdAliasRow {
     merchant_name: string;

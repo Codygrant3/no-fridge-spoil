@@ -3,7 +3,7 @@ import type {
     ReceiptResolutionConfidence,
     ReceiptResolutionMethod,
     ReceiptWeightInfo,
-} from './receiptItemResolver';
+} from './receiptItemResolver.js';
 
 export type AzureReceiptConfidence = 'High' | 'Medium' | 'Low';
 

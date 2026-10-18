@@ -1,8 +1,8 @@
 /// <reference types="node" />
 
-import { cronConfigurationResponse, isAuthorizedCronRequest } from '../server/cronAuth';
-import { processNextReceiptJob } from '../server/receiptJobs';
-import { createServiceAdminClient, serverRequestErrorResponse } from '../server/supabaseServer';
+import { cronConfigurationResponse, isAuthorizedCronRequest } from '../server/cronAuth.js';
+import { processNextReceiptJob } from '../server/receiptJobs.js';
+import { createServiceAdminClient, serverRequestErrorResponse } from '../server/supabaseServer.js';
 
 export async function handleReceiptWorkerRequest(request: Request): Promise<Response> {
     if (request.method !== 'GET' && request.method !== 'POST') {

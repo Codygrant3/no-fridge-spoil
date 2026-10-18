@@ -8,7 +8,7 @@ import {
     serverRequestErrorResponse,
     type AuthorizedHouseholdRequest,
     type HouseholdRole,
-} from '../server/supabaseServer';
+} from '../server/supabaseServer.js';
 
 function jsonResponse(body: unknown, status = 200, extraHeaders: HeadersInit = {}): Response {
     return Response.json(body, {

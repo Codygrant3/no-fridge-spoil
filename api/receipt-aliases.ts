@@ -4,8 +4,8 @@ import {
     authorizeHouseholdRequest,
     ServerRequestError,
     serverRequestErrorResponse,
-} from '../server/supabaseServer';
-import { normalizeReceiptAliasKey } from '../src/services/receiptItemResolver';
+} from '../server/supabaseServer.js';
+import { normalizeReceiptAliasKey } from '../src/services/receiptItemResolver.js';
 
 interface AliasInput {
     merchantName: string;

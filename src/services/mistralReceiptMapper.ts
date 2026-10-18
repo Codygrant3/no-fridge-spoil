@@ -2,8 +2,8 @@ import {
     categorizeReceiptItem,
     isNonFoodReceiptItem,
     type AzureReceiptAnalysis,
-} from './azureReceiptMapper';
-import { isValidDateOnly } from '../utils/dateValidation';
+} from './azureReceiptMapper.js';
+import { isValidDateOnly } from '../utils/dateValidation.js';
 
 interface MistralOcrPage {
     markdown?: string;

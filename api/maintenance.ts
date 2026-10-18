@@ -1,7 +1,7 @@
 /// <reference types="node" />
 
-import { createServiceAdminClient, serverRequestErrorResponse } from '../server/supabaseServer';
-import { cronConfigurationResponse, isAuthorizedCronRequest } from '../server/cronAuth';
+import { createServiceAdminClient, serverRequestErrorResponse } from '../server/supabaseServer.js';
+import { cronConfigurationResponse, isAuthorizedCronRequest } from '../server/cronAuth.js';
 
 export async function handleMaintenanceRequest(request: Request): Promise<Response> {
     if (request.method !== 'GET') {

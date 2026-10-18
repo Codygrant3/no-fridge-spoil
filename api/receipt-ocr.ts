@@ -1,6 +1,6 @@
 /// <reference types="node" />
 
-import { mapAzureReceiptResult } from '../src/services/azureReceiptMapper';
+import { mapAzureReceiptResult } from '../src/services/azureReceiptMapper.js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
     authorizeHouseholdRequest,
@@ -8,9 +8,9 @@ import {
     ServerRequestError,
     serverRequestErrorResponse,
     type AuthorizedHouseholdRequest,
-} from '../server/supabaseServer';
-import { enrichReceiptAnalysis } from '../server/receiptResolution';
-import { mapMistralReceiptResult } from '../src/services/mistralReceiptMapper';
+} from '../server/supabaseServer.js';
+import { enrichReceiptAnalysis } from '../server/receiptResolution.js';
+import { mapMistralReceiptResult } from '../src/services/mistralReceiptMapper.js';
 
 const CONFIGURED_PROVIDER = process.env.RECEIPT_OCR_PROVIDER?.trim().toLowerCase() === 'mistral'
     ? 'mistral'

@@ -6,8 +6,8 @@ import {
     AzureRequestError,
     completeReceiptScan,
     receiptProviderErrorResponse,
-} from '../api/receipt-ocr';
-import { enrichReceiptAnalysis } from './receiptResolution';
+} from '../api/receipt-ocr.js';
+import { enrichReceiptAnalysis } from './receiptResolution.js';
 
 export const RECEIPT_UPLOAD_BUCKET = 'receipt-uploads';
 
